@@ -227,7 +227,13 @@
 
   function renderCounts() {
     if (!state.data) return;
-    document.querySelectorAll('[data-ct]').forEach((c) => { c.textContent = sectionList(c.dataset.ct, regionFor(c.dataset.ct, state.region)).length || ''; });
+    // біля розділу — усі різні новини з усіх його підкатегорій (регіонів), без повторів
+    const topicTotal = (topic) => {
+      const ids = new Set();
+      (WORLD_ONLY.has(topic) ? ['world'] : REGION_IDS).forEach((r) => sectionList(topic, r).forEach((x) => ids.add(x.id)));
+      return ids.size;
+    };
+    document.querySelectorAll('[data-ct]').forEach((c) => { c.textContent = topicTotal(c.dataset.ct) || ''; });
     document.querySelectorAll('[data-cr]').forEach((c) => { c.textContent = sectionList(state.topic, c.dataset.cr).length || ''; });
   }
 
