@@ -48,3 +48,14 @@ STOPWORDS = {
     "en": set("after with from that this have has had will would could should about into over than they their them there when what which while were been being also says said amid against more most just only some such news year years week weeks first last told".split()),
     "zh": set(),
 }
+
+
+# Теми. Перевіряються англійською (у кожної новини є англійський заголовок — оригінал або переклад).
+TOPICS = {
+    "science": r"\b(scientists?|researchers?|study (finds|shows|suggests)|NASA|ESA|astronaut|space (station|telescope|mission)|telescope|astronom|asteroid|comet|galaxy|planet|physicist|physics|biolog|genome|DNA|species|fossil|dinosaur|archaeolog|climate (change|scientists)|glacier|volcano|earthquake|vaccine trial|cancer (drug|research|treatment)|clinical trial)",
+    "tech": r"\b(AI|A\.I\.|artificial intelligence|chatbot|ChatGPT|OpenAI|Anthropic|Gemini|Copilot|Nvidia|Apple|iPhone|iOS|Android|Google|Microsoft|Meta|Instagram|TikTok|YouTube|Tesla|SpaceX|Starlink|smartphone|laptop|semiconductor|chips?|chipmaker|software|apps?|cyber ?attack|hackers?|data breach|startup|robots?|humanoid|drones? (maker|startup|technology)|quantum computing|tech)\b",
+    "crime": r"\b(murder(ed|er)?|homicide|shooting|gunman|stabb(ing|ed)|arrested|arrests?|sentenced|jailed|prison|trial|convicted|fraud|corruption|bribe(ry)?|smuggl|kidnap|robbery|theft|stolen|terror attack|suspects?|detained|prosecutors?|police|gang|cartel|drug traffick)",
+    "sport": r"\b(football|soccer|Premier League|Champions League|Europa League|La Liga|Bundesliga|Serie A|NBA|NFL|NHL|MLB|tennis|Wimbledon|ATP|WTA|Olympic|Olympics|boxing|boxer|UFC|MMA|Formula (1|One)|F1|Grand Prix|MotoGP|cricket|rugby|golf|chess|biathlon|hockey|athletics|marathon|cyclist|Tour de France|world cup|striker|midfielder|goalkeeper|head coach|transfer window|match|tournament|championship)",
+    "economy": r"\b(economy|economic|economists?|inflation|recession|GDP|interest rates?|central bank|Federal Reserve|Fed|ECB|NBU|stocks?|shares|stock market|Wall Street|Dow|Nasdaq|S&P|oil prices?|gas prices?|budget|taxes|tariffs?|trade (deal|war)|exports?|imports?|banks?|banking|currency|dollar|hryvnia|bitcoin|crypto|cryptocurrency|IMF|World Bank|investors?|investment|profits?|revenue|earnings|layoffs?|jobs report|unemployment|bonds?)\b",
+    "games": r"\b(video ?games?|gaming|gamers?|PlayStation|PS5|PS6|Xbox|Nintendo|Switch 2|Steam|esports?|GTA|Grand Theft Auto|Call of Duty|Fortnite|Minecraft|Roblox|game (studio|developer|publisher|trailer|release)|DLC|console)\b",
+}

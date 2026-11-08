@@ -33,9 +33,16 @@ jobs:
           path: |
             data/translations.json
             data/meta_cache.json
+            data/img_cache.json
+            data/ai_cache.json
           key: kolo-cache-${{ github.run_id }}
           restore-keys: kolo-cache-
+      - name: Встановити Pillow (порівняння фото)
+        run: pip install --quiet pillow
       - name: Зібрати новини
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_PER_RUN: "20"
         run: python3 collector/fetch_news.py
       - name: Підготувати сайт
         run: |

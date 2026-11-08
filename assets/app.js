@@ -12,79 +12,92 @@
 
   const T = {
     uk: {
-      world: 'Світ', eurasia: 'Європа і Азія', countries: 'Країни', us: 'США', cn: 'Китай', ua: 'Україна', ru: 'Росія',
-      worldSub: 'Головне за 24 години',
+      popular: 'Популярне', science: 'Наука', tech: 'Технології', crime: 'Кримінал', sport: 'Спорт', economy: 'Економіка', games: 'Ігри',
+      world: 'Весь світ', eurasia: 'Європа і Азія', us: 'США', cn: 'Китай', ua: 'Україна', ru: 'Росія',
+      sections: 'Розділи', region: 'Регіон',
       stories: { one: 'історія', few: 'історії', many: 'історій', other: 'історії' },
       sources: { one: 'джерело', few: 'джерела', many: 'джерел', other: 'джерела' },
-      in24: 'за 24 години', updated: 'Оновлено', top: 'Головне', readAt: 'Читати на', whatSources: 'Що пишуть джерела',
-      empty: 'За останні 24 години новин у цій категорії немає', error: 'Не вдалося завантажити новини. Перевірте, чи запущено сервер.',
-      retry: 'Спробувати ще', refresh: 'Оновити', theme: 'Змінити тему', close: 'Закрити', language: 'Мова',
+      sub: (n) => `${n} за рейтингом · за 24 години`, updated: 'Оновлено', top: 'Головне', readAt: 'Читати на',
+      empty: 'За останні 24 години новин тут немає', error: 'Не вдалося завантажити новини. Перевірте з’єднання.',
+      retry: 'Спробувати ще', refresh: 'Оновити', theme: 'Змінити тему', language: 'Мова',
       fresh: (n) => `Нових історій: ${n}`, upToDate: 'Новини актуальні',
-      note: (n) => `Джерел: ${n}, 4 мовами. Переклад — Google Translate.`, justNow: 'щойно',
+      note: (n) => `Джерел: ${n}, 4 мовами. Тексти — ШІ Gemini, переклад — Google Translate.`, justNow: 'щойно',
       back: 'Назад', related: 'Більше новин', photo: 'Фото', prev: 'Попереднє фото', next: 'Наступне фото',
-      gone: 'Цієї новини вже немає: вона старша за 24 години.',
+      gone: 'Цієї новини вже немає: вона старша за 24 години або випала з топу.',
       machine: 'Машинний переклад', original: 'оригінал', showOrig: 'Показати оригінал', showTr: 'Показати переклад',
-      noTr: 'Переклад тимчасово недоступний — показано оригінал', origLang: 'Оригінал',
+      noTr: 'Переклад тимчасово недоступний — показано оригінал',
+      aiBy: (s) => `Текст написав ШІ на основі ${s}`, aiTr: 'перекладено з української', aiShort: 'ШІ',
+      points: 'Головне', srcTitle: 'Джерела', descBy: 'Короткий опис від видання',
     },
     en: {
-      world: 'World', eurasia: 'Europe & Asia', countries: 'Countries', us: 'USA', cn: 'China', ua: 'Ukraine', ru: 'Russia',
-      worldSub: 'Top stories of the last 24 hours',
+      popular: 'Popular', science: 'Science', tech: 'Tech', crime: 'Crime', sport: 'Sport', economy: 'Economy', games: 'Games',
+      world: 'Whole world', eurasia: 'Europe & Asia', us: 'USA', cn: 'China', ua: 'Ukraine', ru: 'Russia',
+      sections: 'Sections', region: 'Region',
       stories: { one: 'story', other: 'stories' },
       sources: { one: 'source', other: 'sources' },
-      in24: 'in 24 hours', updated: 'Updated', top: 'Top story', readAt: 'Read on', whatSources: 'Coverage',
-      empty: 'No stories in this category in the last 24 hours', error: 'Couldn’t load the news. Check that the server is running.',
-      retry: 'Try again', refresh: 'Refresh', theme: 'Switch theme', close: 'Close', language: 'Language',
+      sub: (n) => `${n} by rating · last 24 hours`, updated: 'Updated', top: 'Top story', readAt: 'Read on',
+      empty: 'No stories here in the last 24 hours', error: 'Couldn’t load the news. Check your connection.',
+      retry: 'Try again', refresh: 'Refresh', theme: 'Switch theme', language: 'Language',
       fresh: (n) => `New stories: ${n}`, upToDate: 'You’re up to date',
-      note: (n) => `${n} sources in 4 languages. Translation by Google Translate.`, justNow: 'just now',
+      note: (n) => `${n} sources in 4 languages. Texts by Gemini AI, translation by Google Translate.`, justNow: 'just now',
       back: 'Back', related: 'More news', photo: 'Photo', prev: 'Previous photo', next: 'Next photo',
-      gone: 'This story is gone: it’s older than 24 hours.',
+      gone: 'This story is gone: it’s older than 24 hours or dropped out of the top.',
       machine: 'Machine translation', original: 'original', showOrig: 'Show original', showTr: 'Show translation',
-      noTr: 'Translation is unavailable right now — showing the original', origLang: 'Original',
+      noTr: 'Translation is unavailable right now — showing the original',
+      aiBy: (s) => `Written by AI from ${s}`, aiTr: 'translated from Ukrainian', aiShort: 'AI',
+      points: 'Key points', srcTitle: 'Sources', descBy: 'Short description from the outlet',
     },
     zh: {
-      world: '世界', eurasia: '欧洲与亚洲', countries: '国家', us: '美国', cn: '中国', ua: '乌克兰', ru: '俄罗斯',
-      worldSub: '过去24小时要闻',
+      popular: '热门', science: '科学', tech: '科技', crime: '犯罪', sport: '体育', economy: '经济', games: '游戏',
+      world: '全世界', eurasia: '欧洲与亚洲', us: '美国', cn: '中国', ua: '乌克兰', ru: '俄罗斯',
+      sections: '栏目', region: '地区',
       stories: { other: '条报道' },
       sources: { other: '个来源' },
-      in24: '（24小时内）', updated: '更新于', top: '头条', readAt: '阅读原文：', whatSources: '各方报道',
-      empty: '过去24小时内该类别暂无新闻', error: '无法加载新闻，请检查服务器是否已启动。',
-      retry: '重试', refresh: '刷新', theme: '切换主题', close: '关闭', language: '语言',
+      sub: (n) => `${n} · 按热度排序 · 24小时内`, updated: '更新于', top: '头条', readAt: '阅读原文：',
+      empty: '过去24小时内暂无新闻', error: '无法加载新闻，请检查网络连接。',
+      retry: '重试', refresh: '刷新', theme: '切换主题', language: '语言',
       fresh: (n) => `新报道：${n}`, upToDate: '已是最新',
-      note: (n) => `来源：${n}个，4种语言。翻译：Google 翻译。`, justNow: '刚刚',
+      note: (n) => `来源：${n}个，4种语言。正文由 Gemini AI 撰写，Google 翻译。`, justNow: '刚刚',
       back: '返回', related: '更多新闻', photo: '图片', prev: '上一张', next: '下一张',
-      gone: '该新闻已超过24小时，无法查看。',
+      gone: '该新闻已超过24小时或已不在榜单中。',
       machine: '机器翻译', original: '原文', showOrig: '显示原文', showTr: '显示译文',
-      noTr: '暂时无法翻译，显示原文', origLang: '原文',
+      noTr: '暂时无法翻译，显示原文',
+      aiBy: (s) => `AI 根据${s}撰写`, aiTr: '译自乌克兰语', aiShort: 'AI',
+      points: '要点', srcTitle: '来源', descBy: '媒体简介',
     },
     ru: {
-      world: 'Мир', eurasia: 'Европа и Азия', countries: 'Страны', us: 'США', cn: 'Китай', ua: 'Украина', ru: 'Россия',
-      worldSub: 'Главное за 24 часа',
+      popular: 'Популярное', science: 'Наука', tech: 'Технологии', crime: 'Криминал', sport: 'Спорт', economy: 'Экономика', games: 'Игры',
+      world: 'Весь мир', eurasia: 'Европа и Азия', us: 'США', cn: 'Китай', ua: 'Украина', ru: 'Россия',
+      sections: 'Разделы', region: 'Регион',
       stories: { one: 'история', few: 'истории', many: 'историй', other: 'истории' },
       sources: { one: 'источник', few: 'источника', many: 'источников', other: 'источника' },
-      in24: 'за 24 часа', updated: 'Обновлено', top: 'Главное', readAt: 'Читать на', whatSources: 'Что пишут источники',
-      empty: 'За последние 24 часа новостей в этой категории нет', error: 'Не удалось загрузить новости. Проверьте, запущен ли сервер.',
-      retry: 'Попробовать снова', refresh: 'Обновить', theme: 'Сменить тему', close: 'Закрыть', language: 'Язык',
+      sub: (n) => `${n} по рейтингу · за 24 часа`, updated: 'Обновлено', top: 'Главное', readAt: 'Читать на',
+      empty: 'За последние 24 часа новостей здесь нет', error: 'Не удалось загрузить новости. Проверьте соединение.',
+      retry: 'Попробовать снова', refresh: 'Обновить', theme: 'Сменить тему', language: 'Язык',
       fresh: (n) => `Новых историй: ${n}`, upToDate: 'Новости актуальны',
-      note: (n) => `Источников: ${n}, на 4 языках. Перевод — Google Translate.`, justNow: 'только что',
+      note: (n) => `Источников: ${n}, на 4 языках. Тексты — ИИ Gemini, перевод — Google Translate.`, justNow: 'только что',
       back: 'Назад', related: 'Больше новостей', photo: 'Фото', prev: 'Предыдущее фото', next: 'Следующее фото',
-      gone: 'Этой новости уже нет: она старше 24 часов.',
+      gone: 'Этой новости уже нет: она старше 24 часов или выпала из топа.',
       machine: 'Машинный перевод', original: 'оригинал', showOrig: 'Показать оригинал', showTr: 'Показать перевод',
-      noTr: 'Перевод временно недоступен — показан оригинал', origLang: 'Оригинал',
+      noTr: 'Перевод временно недоступен — показан оригинал',
+      aiBy: (s) => `Текст написал ИИ на основе ${s}`, aiTr: 'переведено с украинского', aiShort: 'ИИ',
+      points: 'Главное', srcTitle: 'Источники', descBy: 'Краткое описание от издания',
     },
   };
 
-  const GLOBE = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
-  const EURASIA_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7.5c2-1.6 4.5-2.3 6.5-1.6 1.6.6 2 2 3.6 2.1 1.7.1 2.6-1.3 4.3-.9 1.3.3 2 1.4 1.6 2.6-.5 1.5-2.4 1.6-3 3-.6 1.3.5 2.8-.6 3.8-1.2 1.1-3 .2-4.2 1-.9.6-.9 2-2 2.4-1.5.5-2.7-1-3-2.4-.3-1.5.6-2.9-.2-4.1-.7-1.1-2.4-1-3.2-2C3.5 10.4 3.2 8.6 4 7.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
-  const CATS = [
-    { id: 'world', icon: GLOBE },
-    { id: 'eurasia', icon: EURASIA_ICON },
-    { id: 'us', flag: '🇺🇸', country: true },
-    { id: 'cn', flag: '🇨🇳', country: true },
-    { id: 'ua', flag: '🇺🇦', country: true },
-    { id: 'ru', flag: '🇷🇺', country: true },
+  const GLOBE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+  const EURASIA_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7.5c2-1.6 4.5-2.3 6.5-1.6 1.6.6 2 2 3.6 2.1 1.7.1 2.6-1.3 4.3-.9 1.3.3 2 1.4 1.6 2.6-.5 1.5-2.4 1.6-3 3-.6 1.3.5 2.8-.6 3.8-1.2 1.1-3 .2-4.2 1-.9.6-.9 2-2 2.4-1.5.5-2.7-1-3-2.4-.3-1.5.6-2.9-.2-4.1-.7-1.1-2.4-1-3.2-2C3.5 10.4 3.2 8.6 4 7.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  const TOPICS = [
+    { id: 'popular', icon: '🔥' }, { id: 'science', icon: '🔬' }, { id: 'tech', icon: '💻' }, { id: 'crime', icon: '🚨' },
+    { id: 'sport', icon: '⚽' }, { id: 'economy', icon: '📈' }, { id: 'games', icon: '🎮' },
   ];
-  const CAT_IDS = CATS.map((c) => c.id);
-  const PAGE = 24;
+  const REGIONS = [
+    { id: 'world', svg: GLOBE }, { id: 'eurasia', svg: EURASIA_ICON },
+    { id: 'us', icon: '🇺🇸' }, { id: 'cn', icon: '🇨🇳' }, { id: 'ua', icon: '🇺🇦' },
+  ];
+  const TOPIC_IDS = TOPICS.map((x) => x.id);
+  const REGION_IDS = REGIONS.map((x) => x.id);
+  const PER_SECTION = 15;
   const AUTO_REFRESH_MS = 10 * 60 * 1000;
   const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -95,10 +108,10 @@
   };
   const state = {
     lang: T[store.get('kolo-lang')] ? store.get('kolo-lang') : 'uk', // за замовчуванням — українська
-    cat: 'world',
-    data: null,       // відповідь з data/<мова>.json
-    list: [],         // історії поточної категорії
-    shown: 0,
+    topic: 'popular',
+    region: 'world',
+    data: null,
+    list: [],
     loading: false,
     openId: null,
   };
@@ -106,19 +119,17 @@
   const $ = (id) => document.getElementById(id);
   const el = {
     grid: $('grid'), title: $('sec-title'), sub: $('sec-sub'), head: $('section-head'), updated: $('updated'),
-    sideNav: $('side-nav'), sideInd: $('side-ind'), chips: $('chips'), chipInd: $('chip-ind'), note: $('side-note'),
+    sideTopics: $('side-topics'), sideRegions: $('side-regions'), chipsT: $('chips-t'), chipsR: $('chips-r'), note: $('side-note'),
+    labelT: $('label-t'), labelR: $('label-r'),
     langSeg: $('lang-seg'), langDrop: $('lang-drop'), langBtn: $('lang-btn'), langMenu: $('lang-menu'),
     refresh: $('refresh'), theme: $('theme'), listView: $('list-view'), story: $('story-view'),
-    toast: $('toast'), sentinel: $('sentinel'), splash: $('splash'),
+    toast: $('toast'), splash: $('splash'),
   };
 
   const t = () => T[state.lang];
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '#');
-  const plural = (n, forms) => {
-    const key = new Intl.PluralRules(state.lang).select(n);
-    return forms[key] || forms.other;
-  };
+  const plural = (n, forms) => forms[new Intl.PluralRules(state.lang).select(n)] || forms.other;
   const countText = (n, forms) => (state.lang === 'zh' ? `${n} ${forms.other}` : `${n} ${plural(n, forms)}`);
   const ago = (iso) => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -138,53 +149,64 @@
   const baseLang = (c) => String(c || '').split('-')[0];
   const langName = (c) => { try { return new Intl.DisplayNames([state.lang], { type: 'language' }).of(c); } catch (e) { return SHORT[c] || c; } };
   const TR_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c.7 3.2 2.8 5.8 6 7.5M11 5c-.8 3.6-3.4 6.6-7 8.5M13 21l4.5-10L22 21M14.5 17.5h6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const AI_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18.5 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="currentColor"/></svg>';
+  const matches = (s, topic, region) => s.cats.includes(region) && (topic === 'popular' || (s.topics || []).includes(topic)) && fresh(s);
+  const sectionList = (topic, region) => (state.data ? state.data.stories.filter((s) => matches(s, topic, region)).slice(0, PER_SECTION) : []);
+  const hashFor = (topic, region, id) => `#${topic}/${region}${id ? `/${id}` : ''}`;
 
-  // ---------------------------------------------------------------- меню
+  // ---------------------------------------------------------------- меню: розділи × регіони
   function buildNav() {
     const L = t();
-    const side = [];
-    const chips = [];
-    CATS.forEach((c, i) => {
-      if (c.country && !CATS[i - 1].country) side.push(`<div class="side-label">${esc(L.countries)}</div>`);
-      const icon = c.flag ? `<span class="flag">${c.flag}</span>` : c.icon;
-      side.push(`<button class="side-link" data-cat="${c.id}" type="button">${icon}<span>${esc(L[c.id])}</span><span class="count" data-count="${c.id}"></span></button>`);
-      chips.push(`<button class="chip" data-cat="${c.id}" type="button">${c.flag ? `<span class="flag">${c.flag}</span>` : ''}${esc(L[c.id])}</button>`);
-    });
-    el.sideNav.innerHTML = '<span class="side-ind" id="side-ind"></span>' + side.join('');
-    el.chips.innerHTML = '<span class="chip-ind" id="chip-ind"></span>' + chips.join('');
-    el.sideInd = $('side-ind');
-    el.chipInd = $('chip-ind');
+    el.labelT.textContent = L.sections;
+    el.labelR.textContent = L.region;
+    const icon = (x) => (x.svg ? x.svg : `<span class="flag">${x.icon}</span>`);
+    el.sideTopics.innerHTML = '<span class="side-ind"></span>' + TOPICS.map((x) =>
+      `<button class="side-link" data-topic="${x.id}" type="button">${icon(x)}<span>${esc(L[x.id])}</span><span class="count" data-ct="${x.id}"></span></button>`).join('');
+    el.sideRegions.innerHTML = '<span class="side-ind"></span>' + REGIONS.map((x) =>
+      `<button class="side-link" data-region="${x.id}" type="button">${icon(x)}<span>${esc(L[x.id])}</span><span class="count" data-cr="${x.id}"></span></button>`).join('');
+    el.chipsT.innerHTML = '<span class="chip-ind"></span>' + TOPICS.map((x) =>
+      `<button class="chip" data-topic="${x.id}" type="button"><span class="flag">${x.icon}</span>${esc(L[x.id])}</button>`).join('');
+    el.chipsR.innerHTML = '<span class="chip-ind"></span>' + REGIONS.map((x) =>
+      `<button class="chip" data-region="${x.id}" type="button">${x.icon ? `<span class="flag">${x.icon}</span>` : ''}${esc(L[x.id])}</button>`).join('');
     markNav(false);
+    renderCounts();
   }
 
   function markNav(animate = true) {
-    document.querySelectorAll('[data-cat]').forEach((b) => {
-      const on = b.dataset.cat === state.cat;
+    [el.sideTopics, el.chipsT].forEach((box) => box.querySelectorAll('[data-topic]').forEach((b) => {
+      const on = b.dataset.topic === state.topic;
       b.classList.toggle('active', on);
       b.setAttribute('aria-current', on ? 'page' : 'false');
-    });
+    }));
+    [el.sideRegions, el.chipsR].forEach((box) => box.querySelectorAll('[data-region]').forEach((b) => {
+      const on = b.dataset.region === state.region;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-current', on ? 'page' : 'false');
+    }));
     moveIndicators(animate);
   }
 
   function moveIndicators(animate = true) {
-    const side = el.sideNav.querySelector('.side-link.active');
-    const chip = el.chips.querySelector('.chip.active');
-    [[el.sideInd, side, 'y'], [el.chipInd, chip, 'x']].forEach(([ind, target, axis]) => {
+    [el.sideTopics, el.sideRegions, el.chipsT, el.chipsR].forEach((box) => {
+      const ind = box.querySelector('.side-ind, .chip-ind');
+      const target = box.querySelector('.active');
       if (!ind || !target) return;
       if (!animate) ind.style.transition = 'none';
-      if (axis === 'y') {
-        ind.style.transform = `translateY(${target.offsetTop}px)`;
-        ind.style.height = `${target.offsetHeight}px`;
-      } else {
-        ind.style.transform = `translateX(${target.offsetLeft}px)`;
-        ind.style.width = `${target.offsetWidth}px`;
-      }
+      ind.style.transform = `translate(${target.offsetLeft}px, ${target.offsetTop}px)`;
+      ind.style.width = `${target.offsetWidth}px`;
+      ind.style.height = `${target.offsetHeight}px`;
       if (!animate) requestAnimationFrame(() => { ind.style.transition = ''; });
+      if (box.classList.contains('chips') && box.offsetParent) {
+        const left = target.offsetLeft - (box.clientWidth - target.offsetWidth) / 2;
+        box.scrollTo({ left, behavior: animate ? 'smooth' : 'auto' });
+      }
     });
-    if (chip && el.chips.offsetParent) {
-      const left = chip.offsetLeft - (el.chips.clientWidth - chip.offsetWidth) / 2;
-      el.chips.scrollTo({ left, behavior: animate ? 'smooth' : 'auto' });
-    }
+  }
+
+  function renderCounts() {
+    if (!state.data) return;
+    document.querySelectorAll('[data-ct]').forEach((c) => { c.textContent = sectionList(c.dataset.ct, state.region).length || ''; });
+    document.querySelectorAll('[data-cr]').forEach((c) => { c.textContent = sectionList(state.topic, c.dataset.cr).length || ''; });
   }
 
   function buildLang() {
@@ -218,9 +240,15 @@
   }
 
   // ---------------------------------------------------------------- картки
+  function pill(s) {
+    const L = t();
+    if (s.ai) return `<span class="tr-pill ai" title="${esc(L.aiBy(countText(s.sourceCount, L.sources)))}">${AI_ICON}${esc(L.aiShort)}</span>`;
+    if (s.orig) return `<span class="tr-pill${s.tr === false ? ' raw' : ''}" title="${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}">${TR_ICON}${esc(SHORT[s.orig.lang] || s.orig.lang)}</span>`;
+    return '';
+  }
+
   function cardHTML(s, i, hero) {
     const L = t();
-    const n = s.sourceCount;
     const names = s.names || [];
     const av = names.slice(0, 3).map((nm) => `<i>${esc(initials(nm).slice(0, 1))}</i>`).join('');
     const more = names.length > 2 ? ` +${names.length - 2}` : '';
@@ -231,7 +259,7 @@
       ${img}
       <div class="body">
         ${hero ? `<span class="badge-top">${esc(L.top)}</span>` : ''}
-        <div class="meta"><span class="avatars">${av}</span><span>${esc(countText(n, L.sources))}</span><span class="sep">•</span><time datetime="${esc(s.time)}">${esc(ago(s.time))}</time>${s.orig ? `<span class="tr-pill${s.tr === false ? ' raw' : ''}" title="${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}">${TR_ICON}${esc(SHORT[s.orig.lang] || s.orig.lang)}</span>` : ''}</div>
+        <div class="meta"><span class="avatars">${av}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(s.time)}">${esc(ago(s.time))}</time>${pill(s)}</div>
         <h3>${esc(s.title)}</h3>
         ${s.summary ? `<p>${esc(s.summary)}</p>` : ''}
         <div class="srcs">${esc(names.slice(0, 2).join(' · '))}${esc(more)}</div>
@@ -255,26 +283,21 @@
     el.grid.innerHTML = one.repeat(6);
   }
 
+  function sectionTitle() {
+    const L = t();
+    return state.region === 'world' ? L[state.topic] : `${L[state.topic]} · ${L[state.region]}`;
+  }
+
   function renderHead(animate) {
     const L = t();
-    const n = state.list.length;
-    el.title.textContent = L[state.cat];
-    const sub = state.cat === 'world' ? `${L.worldSub} · ${countText(n, L.stories)}` : `${countText(n, L.stories)} ${L.in24}`;
-    el.sub.textContent = sub;
+    el.title.textContent = sectionTitle();
+    el.sub.textContent = L.sub(countText(state.list.length, L.stories));
     if (animate) {
       el.head.classList.remove('swap');
       void el.head.offsetWidth;
       el.head.classList.add('swap');
     }
-    if (!state.openId) document.title = state.cat === 'world' ? 'Коло Новин' : `${L[state.cat]} — Коло Новин`;
-  }
-
-  function renderCounts() {
-    if (!state.data) return;
-    const live = state.data.stories.filter(fresh);
-    document.querySelectorAll('[data-count]').forEach((c) => {
-      c.textContent = live.filter((s) => s.cats.includes(c.dataset.count)).length || '';
-    });
+    if (!state.openId) document.title = state.topic === 'popular' && state.region === 'world' ? 'Коло Новин' : `${sectionTitle()} — Коло Новин`;
   }
 
   function renderUpdated() {
@@ -285,45 +308,39 @@
 
   function renderList(animate = true) {
     if (!state.data) return;
-    state.list = state.data.stories.filter((s) => s.cats.includes(state.cat) && fresh(s));
-    state.shown = 0;
+    state.list = sectionList(state.topic, state.region);
     renderHead(animate);
     if (!state.list.length) {
       el.grid.innerHTML = `<div class="empty"><span class="logo"></span><div>${esc(t().empty)}</div></div>`;
       return;
     }
-    el.grid.innerHTML = '';
-    appendMore();
-  }
-
-  function appendMore() {
-    if (state.shown >= state.list.length) return;
-    const from = state.shown;
-    const part = state.list.slice(from, from + PAGE);
-    const html = part.map((s, k) => cardHTML(s, Math.min(k, 10), from + k === 0)).join('');
-    el.grid.insertAdjacentHTML('beforeend', html);
-    state.shown += part.length;
+    el.grid.innerHTML = state.list.map((s, k) => cardHTML(s, Math.min(k, 10), k === 0)).join('');
     wireImages(el.grid);
   }
 
   function refreshTimes() {
-    document.querySelectorAll('.card time').forEach((tm) => { tm.textContent = ago(tm.getAttribute('datetime')); });
+    document.querySelectorAll('time[datetime]').forEach((tm) => { tm.textContent = ago(tm.getAttribute('datetime')); });
     renderUpdated();
   }
 
   // ---------------------------------------------------------------- перемикання
   let swapTimer;
-  function switchCat(cat, push = true) {
-    if (!CAT_IDS.includes(cat)) cat = 'world';
-    if (push && location.hash !== `#${cat}`) history.pushState({ cat }, '', `#${cat}`);
-    if (state.openId) closeStory(true, cat === state.cat);
-    if (cat === state.cat && el.grid.children.length) return;
-    state.cat = cat;
+  function go(topic, region, push = true) {
+    topic = TOPIC_IDS.includes(topic) ? topic : 'popular';
+    region = REGION_IDS.includes(region) ? region : 'world';
+    const target = hashFor(topic, region);
+    if (push && location.hash !== target) history.pushState({ topic, region }, '', target);
+    const same = topic === state.topic && region === state.region;
+    if (state.openId) closeStory(true, same);
+    if (same && el.grid.children.length) return;
+    state.topic = topic;
+    state.region = region;
     markNav(true);
+    renderCounts();
     el.grid.classList.add('leaving');
     clearTimeout(swapTimer);
     swapTimer = setTimeout(() => {
-      const top = el.head.getBoundingClientRect().top + window.scrollY - 130;
+      const top = el.head.getBoundingClientRect().top + window.scrollY - 150;
       if (window.scrollY > top) window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
       renderList(true);
       el.grid.classList.remove('leaving');
@@ -368,7 +385,7 @@
       const data = await res.json();
       if (lang !== state.lang) return;
       state.data = data;
-      const added = oldIds.size ? data.stories.filter((s) => !oldIds.has(s.id) && s.cats.includes(state.cat)).length : 0;
+      const added = oldIds.size ? sectionList(state.topic, state.region).filter((s) => !oldIds.has(s.id)).length : 0;
       if (!silent || added) renderList(!silent);
       renderCounts();
       renderUpdated();
@@ -412,9 +429,9 @@
   }
 
   // ---------------------------------------------------------------- сторінка історії
-  const ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ARROW = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const CHEV = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="${d === 'l' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const details = new Map();   // кеш завантажених історій: "мова/id" -> дані
+  const details = new Map();
   let listScroll = 0;
   let storyToken = 0;
 
@@ -428,8 +445,11 @@
     return d;
   }
 
-  function trLine(s) {
+  function infoLine(s) {
     const L = t();
+    if (s.ai) {
+      return `<div class="d-tr ai">${AI_ICON}<span>${esc(L.aiBy(countText(s.sourceCount, L.sources)))}${s.aiTr ? ` · ${esc(L.aiTr)}` : ''}</span></div>`;
+    }
     if (!s.orig) return '';
     return `<div class="d-tr">${TR_ICON}<span>${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}</span>${s.tr === false ? '' : `<button type="button" id="tr-toggle">${esc(L.showOrig)}</button>`}</div>`;
   }
@@ -438,37 +458,36 @@
     const L = t();
     if (!images.length) return '<div class="gallery empty-g"></div>';
     const many = images.length > 1;
-    return `<div class="gallery" id="gallery">
+    return `<div class="gallery${many ? '' : ' single'}" id="gallery">
       <div class="g-track" id="g-track">${images.map((im, k) => `
         <figure class="g-item"><img src="${esc(safeUrl(im.u))}" alt="" loading="${k < 2 ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer">
           <figcaption>${esc(L.photo)}: ${esc(im.s)}</figcaption></figure>`).join('')}
       </div>
-      ${many ? `<button class="g-nav prev" type="button" data-g="-1" aria-label="${esc(L.prev)}">${CHEV('l')}</button>
+      <button class="g-nav prev" type="button" data-g="-1" aria-label="${esc(L.prev)}">${CHEV('l')}</button>
       <button class="g-nav next" type="button" data-g="1" aria-label="${esc(L.next)}">${CHEV('r')}</button>
       <div class="g-count" id="g-count">1 / ${images.length}</div>
-      <div class="g-dots" id="g-dots">${images.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+      <div class="g-dots" id="g-dots">${images.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>
     </div>`;
   }
 
   function wireGallery() {
     const track = $('g-track');
-    if (!track) return;
+    const g = $('gallery');
+    if (!track || !g) return;
     const figs = () => [...track.querySelectorAll('.g-item')];
-    track.querySelectorAll('img').forEach((img) => {
-      const ok = () => img.classList.add('ok');
-      const bad = () => { img.closest('.g-item').remove(); sync(); };
-      if (img.complete && img.naturalWidth) ok();
-      else if (img.complete) bad();
-      else { img.addEventListener('load', ok, { once: true }); img.addEventListener('error', bad, { once: true }); }
-    });
+    let index = 0;
+    const show = (k) => {
+      const n = figs().length;
+      index = Math.max(0, Math.min(n - 1, k));
+      track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
+    };
     function sync() {
       const n = figs().length;
-      const g = $('gallery');
-      if (!g) return;
       if (!n) { g.classList.add('empty-g'); g.innerHTML = ''; return; }
-      const k = Math.round(track.scrollLeft / Math.max(track.clientWidth, 1));
+      const k = Math.min(n - 1, Math.round(track.scrollLeft / Math.max(track.clientWidth, 1)));
+      index = k;
       const cnt = $('g-count');
-      if (cnt) cnt.textContent = `${Math.min(k + 1, n)} / ${n}`;
+      if (cnt) cnt.textContent = `${k + 1} / ${n}`;
       const dots = $('g-dots');
       if (dots) {
         while (dots.children.length > n) dots.lastChild.remove();
@@ -476,47 +495,80 @@
       }
       g.classList.toggle('single', n < 2);
     }
-    track.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
-    $('gallery').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-g]');
-      if (b) track.scrollBy({ left: Number(b.dataset.g) * track.clientWidth, behavior: 'smooth' });
+    track.querySelectorAll('img').forEach((img) => {
+      const ok = () => img.classList.add('ok');
+      const bad = () => { img.closest('.g-item').remove(); sync(); };
+      if (img.complete && img.naturalWidth) ok();
+      else if (img.complete) bad();
+      else { img.addEventListener('load', ok, { once: true }); img.addEventListener('error', bad, { once: true }); }
     });
+    track.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
+    g.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-g]');
+      if (b) show(index + Number(b.dataset.g));
+    });
+    // тачпад: вертикальне гортання завжди гортає сторінку, горизонтальний свайп перемикає фото
+    let lock = 0;
+    track.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      if (Math.abs(e.deltaX) < 8 || Date.now() < lock) return;
+      lock = Date.now() + 550;
+      show(index + (e.deltaX > 0 ? 1 : -1));
+    }, { passive: false });
     sync();
   }
 
   function sourcesHTML(list) {
     const L = t();
     return list.map((x, k) => `
-      <div class="sp-src" style="--k:${k}">
-        <div class="sp-src-head"><span class="av">${esc(initials(x.name))}</span><b>${esc(x.name)}</b>${baseLang(x.lang) !== state.lang ? `<em class="lang-tag">${esc(SHORT[x.lang] || x.lang)}</em>` : ''}<time>${esc(ago(x.time))}</time></div>
-        <h3 data-o="${esc(x.oTitle || '')}">${esc(x.title)}</h3>
-        ${x.text ? `<p data-o="${esc(x.oText || '')}">${esc(x.text)}</p>` : ''}
-        <a class="sp-link" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${esc(L.readAt)} ${esc(x.name)} ${ARROW}</a>
-      </div>`).join('');
+      <a class="sp-src" style="--k:${k}" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer" aria-label="${esc(L.readAt)} ${esc(x.name)}">
+        <span class="av">${esc(initials(x.name))}</span>
+        <span class="sp-src-main">
+          <span class="sp-src-head"><b>${esc(x.name)}</b>${baseLang(x.lang) !== state.lang ? `<em class="lang-tag">${esc(SHORT[x.lang] || x.lang)}</em>` : ''}<time datetime="${esc(x.time)}">${esc(ago(x.time))}</time></span>
+          ${x.title ? `<span class="sp-src-title">${esc(x.title)}</span>` : ''}
+        </span>
+        <span class="sp-src-go">${ARROW}</span>
+      </a>`).join('');
+  }
+
+  function bodyHTML(s, d) {
+    const L = t();
+    if (d && d.ai) {
+      return `<p class="sp-lead">${esc(d.ai.lead)}</p>
+        <div class="sp-body">${d.ai.body.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+        ${d.ai.points && d.ai.points.length ? `<aside class="sp-points"><h2>${esc(L.points)}</h2><ul>${d.ai.points.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></aside>` : ''}`;
+    }
+    const text = (d && d.text && d.text.length > (s.summary || '').length) ? d.text : (s.summary || '');
+    return `<p class="sp-lead" id="sp-lead">${esc(text)}</p>${s.ai ? '' : `<p class="sp-desc-note">${esc(L.descBy)}</p>`}`;
   }
 
   function relatedHTML(s) {
-    const pool = state.data.stories.filter((x) => x.id !== s.id && fresh(x));
-    const cat = s.cats.find((c) => c !== 'world' && c === state.cat) || s.cats.find((c) => c !== 'world') || 'world';
-    const rel = pool.filter((x) => x.cats.includes(cat)).slice(0, 6);
-    return rel.map((x, k) => cardHTML(x, k, false)).join('');
+    const topic = state.topic !== 'popular' && (s.topics || []).includes(state.topic) ? state.topic : 'popular';
+    const region = s.cats.includes(state.region) ? state.region : 'world';
+    return sectionList(topic, region).filter((x) => x.id !== s.id).slice(0, 6).map((x, k) => cardHTML(x, k, false)).join('');
   }
 
-  function catPills(s) {
-    return s.cats.filter((c) => c !== 'world').map((c) => {
-      const cc = CATS.find((x) => x.id === c);
-      return `<button class="sp-pill" type="button" data-cat="${c}">${cc && cc.flag ? `<span class="flag">${cc.flag}</span>` : ''}${esc(t()[c])}</button>`;
-    }).join('');
+  function storyPills(s) {
+    const L = t();
+    const tp = (s.topics || []).map((id) => {
+      const x = TOPICS.find((y) => y.id === id);
+      return `<button class="sp-pill" type="button" data-topic="${id}" data-go="1"><span class="flag">${x ? x.icon : ''}</span>${esc(L[id])}</button>`;
+    });
+    const rg = s.cats.filter((c) => c !== 'world' && REGION_IDS.includes(c)).map((id) => {
+      const x = REGIONS.find((y) => y.id === id);
+      return `<button class="sp-pill" type="button" data-region="${id}" data-go="1">${x && x.icon ? `<span class="flag">${x.icon}</span>` : ''}${esc(L[id])}</button>`;
+    });
+    return tp.concat(rg).join('');
   }
 
-  // відкриваємо одразу з даними стрічки, а фото й тексти джерел догружаємо
   async function openStory(id, push = true) {
     const s = state.data && state.data.stories.find((x) => x.id === id);
     const L = t();
     const token = ++storyToken;
     if (!state.openId) listScroll = window.scrollY;
     state.openId = id;
-    if (push) history.pushState({ cat: state.cat, story: id }, '', `#${state.cat}/${id}`);
+    if (push) history.pushState({ story: id }, '', hashFor(state.topic, state.region, id));
     el.listView.hidden = true;
     el.story.hidden = false;
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -527,15 +579,15 @@
     document.title = `${s.title} — Коло Новин`;
     el.story.style.setProperty('--c', s.color);
     el.story.innerHTML = `
-      <div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button><div class="sp-pills">${catPills(s)}</div></div>
+      <div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button><div class="sp-pills">${storyPills(s)}</div></div>
       <header class="sp-head">
-        <div class="meta"><span class="avatars">${(s.names || []).slice(0, 3).map((n) => `<i>${esc(initials(n).slice(0, 1))}</i>`).join('')}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time>${esc(ago(s.time))}</time></div>
+        <div class="meta"><span class="avatars">${(s.names || []).slice(0, 3).map((n) => `<i>${esc(initials(n).slice(0, 1))}</i>`).join('')}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(s.time)}">${esc(ago(s.time))}</time></div>
         <h1 id="sp-title">${esc(s.title)}</h1>
-        ${trLine(s)}
+        ${infoLine(s)}
       </header>
       <div id="sp-gallery">${galleryHTML(s.image ? [{ u: s.image, s: (s.names || [''])[0] }] : [])}</div>
-      <p class="sp-lead" id="sp-lead">${esc(s.summary || '')}</p>
-      <section class="sp-sources" id="sp-sources"><h2>${esc(L.whatSources)}</h2><div class="sp-skel"></div><div class="sp-skel"></div></section>
+      <div id="sp-text">${bodyHTML(s, null)}</div>
+      <section class="sp-sources" id="sp-sources"><h2>${esc(L.srcTitle)}</h2><div class="sp-skel"></div></section>
       <section class="sp-related"><h2>${esc(L.related)}</h2><div class="grid related" id="sp-related">${relatedHTML(s)}</div></section>`;
     wireGallery();
     wireImages($('sp-related'));
@@ -546,19 +598,18 @@
         $('sp-gallery').innerHTML = galleryHTML(d.images);
         wireGallery();
       }
-      if (d.text && d.text.length > (s.summary || '').length) $('sp-lead').textContent = d.text;
-      $('sp-sources').innerHTML = `<h2>${esc(L.whatSources)}</h2>${sourcesHTML(d.sources)}`;
+      $('sp-text').innerHTML = bodyHTML(s, d);
+      $('sp-sources').innerHTML = `<h2>${esc(L.srcTitle)}</h2><div class="sp-src-list">${sourcesHTML(d.sources)}</div>`;
       wireToggle(s, d);
     } catch (e) {
       if (token !== storyToken) return;
-      $('sp-sources').innerHTML = `<h2>${esc(L.whatSources)}</h2>${sourcesHTML((s.names || []).map((n) => ({ name: n, title: '', url: '#', time: s.time, lang: state.lang })))}`;
-      wireToggle(s, null);
+      $('sp-sources').innerHTML = `<h2>${esc(L.srcTitle)}</h2><div class="sp-src-list">${sourcesHTML((s.names || []).map((n) => ({ name: n, title: '', url: '#', time: s.time, lang: state.lang })))}</div>`;
     }
   }
 
   function wireToggle(s, d) {
     const toggle = $('tr-toggle');
-    if (!toggle) return;
+    if (!toggle || !s.orig) return;
     const L = t();
     let orig = false;
     toggle.addEventListener('click', () => {
@@ -567,13 +618,8 @@
       const lead = $('sp-lead');
       h.textContent = orig ? s.orig.title : s.title;
       h.lang = orig ? s.orig.lang : '';
-      lead.textContent = orig ? (s.orig.text || s.orig.summary || '') : ((d && d.text) || s.summary || '');
-      [h, lead].forEach((n) => { n.classList.remove('swap-in'); void n.offsetWidth; n.classList.add('swap-in'); });
-      document.querySelectorAll('#sp-sources [data-o]').forEach((n) => {
-        if (!n.dataset.o) return;
-        if (!n.dataset.t) n.dataset.t = n.textContent;
-        n.textContent = orig ? n.dataset.o : n.dataset.t;
-      });
+      if (lead) lead.textContent = orig ? (s.orig.text || s.orig.summary || '') : ((d && d.text) || s.summary || '');
+      [h, lead].filter(Boolean).forEach((n) => { n.classList.remove('swap-in'); void n.offsetWidth; n.classList.add('swap-in'); });
       toggle.textContent = orig ? L.showTr : L.showOrig;
     });
   }
@@ -598,27 +644,43 @@
 
   function goBack() {
     if (history.state && history.state.story) history.back();
-    else { closeStory(true); history.pushState({ cat: state.cat }, '', `#${state.cat}`); }
+    else { closeStory(true); history.pushState({}, '', hashFor(state.topic, state.region)); }
   }
 
-  // ---------------------------------------------------------------- маршрути (#ua, #ua/<id>)
-  function route(push) {
-    const [cat, id] = location.hash.replace('#', '').split('/');
-    const c = CAT_IDS.includes(cat) ? cat : 'world';
-    if (id && state.data) {
-      if (c !== state.cat) { state.cat = c; markNav(false); renderList(false); }
-      if (state.openId !== id) openStory(id, false);
+  // ---------------------------------------------------------------- маршрути: #розділ/регіон[/id]
+  function parseHash() {
+    const [a, b, c] = location.hash.replace('#', '').split('/');
+    return {
+      topic: TOPIC_IDS.includes(a) ? a : 'popular',
+      region: REGION_IDS.includes(b) ? b : 'world',
+      id: c || null,
+    };
+  }
+
+  function route() {
+    const r = parseHash();
+    if (r.id && state.data) {
+      if (r.topic !== state.topic || r.region !== state.region) {
+        state.topic = r.topic; state.region = r.region; markNav(false); renderCounts(); renderList(false);
+      }
+      if (state.openId !== r.id) openStory(r.id, false);
     } else {
-      if (state.openId) closeStory(true, c === state.cat);
-      if (c !== state.cat) switchCat(c, false);
+      const same = r.topic === state.topic && r.region === state.region;
+      if (state.openId) closeStory(true, same);
+      if (!same) go(r.topic, r.region, false);
     }
-    return push;
   }
 
   // ---------------------------------------------------------------- події
   document.addEventListener('click', (e) => {
-    const catBtn = e.target.closest('[data-cat]');
-    if (catBtn) { switchCat(catBtn.dataset.cat); return; }
+    const tb = e.target.closest('[data-topic]');
+    if (tb) {
+      // зі сторінки історії розділ відкриваємо для «Весь світ», щоб новин було більше
+      go(tb.dataset.topic, tb.dataset.go ? 'world' : state.region);
+      return;
+    }
+    const rb = e.target.closest('[data-region]');
+    if (rb) { go(rb.dataset.go ? 'popular' : state.topic, rb.dataset.region); return; }
     const langBtn = e.target.closest('[data-lang]');
     if (langBtn) { setLang(langBtn.dataset.lang); return; }
     if (e.target.closest('[data-back]')) { goBack(); return; }
@@ -628,9 +690,9 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { if (state.openId) goBack(); closeLangMenu(); }
-    if (state.openId && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $('g-track') && !e.target.closest('input,textarea')) {
-      const tr = $('g-track');
-      tr.scrollBy({ left: (e.key === 'ArrowLeft' ? -1 : 1) * tr.clientWidth, behavior: 'smooth' });
+    if (state.openId && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $('gallery')) {
+      const btn = $('gallery').querySelector(e.key === 'ArrowLeft' ? '.g-nav.prev' : '.g-nav.next');
+      if (btn) btn.click();
     }
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('card')) {
       e.preventDefault(); openStory(e.target.dataset.id);
@@ -649,31 +711,25 @@
     store.set('kolo-theme', next);
     document.querySelector('meta[name="theme-color"]').content = next === 'light' ? '#f4f3ef' : '#0c0e12';
   });
-  document.querySelector('.brand').addEventListener('click', (e) => { e.preventDefault(); switchCat('world'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-  window.addEventListener('popstate', () => route(false));
+  document.querySelector('.brand').addEventListener('click', (e) => { e.preventDefault(); go('popular', 'world'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  window.addEventListener('popstate', route);
   window.addEventListener('resize', () => { moveIndicators(false); moveSeg(false); });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && state.data && Date.now() - new Date(state.data.generated).getTime() > AUTO_REFRESH_MS) load(true);
   });
-
-  new IntersectionObserver((entries) => {
-    if (entries.some((en) => en.isIntersecting)) appendMore();
-  }, { rootMargin: '800px' }).observe(el.sentinel);
 
   setInterval(refreshTimes, 60 * 1000);
   setInterval(() => load(true), AUTO_REFRESH_MS);
 
   // ---------------------------------------------------------------- старт
   if (document.documentElement.dataset.theme === 'light') document.querySelector('meta[name="theme-color"]').content = '#f4f3ef';
-  const [startCat] = location.hash.replace('#', '').split('/');
-  state.cat = CAT_IDS.includes(startCat) ? startCat : 'world';
+  const start = parseHash();
+  state.topic = start.topic;
+  state.region = start.region;
   applyTexts();
   buildNav();
   buildLang();
   skeleton();
-  load(false).then(() => {
-    const [, id] = location.hash.replace('#', '').split('/');
-    if (id) openStory(id, false);
-  });
+  load(false).then(() => { if (start.id) openStory(start.id, false); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { moveIndicators(false); moveSeg(false); });
 })();
