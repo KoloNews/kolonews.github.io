@@ -143,10 +143,12 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
                 wait = 0.0
                 try:
                     err = json.loads(e.read().decode("utf-8")).get("error", {})
-                    daily = any("PerDay" in (v.get("quotaId") or "") for d in err.get("details", []) for v in d.get("violations", []))
+                    ids = [v.get("quotaId") or "" for d in err.get("details", []) for v in d.get("violations", [])]
+                    daily = any("PerDay" in q for q in ids)
                     for d in err.get("details", []):
                         if d.get("retryDelay"):
                             wait = float(str(d["retryDelay"]).rstrip("s") or 0)
+                    print(f"ШІ: Google обмежив запити (429): {', '.join(ids) or err.get('message', '')[:120]}; повтор через {wait or 20:.0f} с", flush=True)
                 except Exception:
                     daily = False
                 if not daily and attempt < 2 and wait <= 60:
