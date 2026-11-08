@@ -138,6 +138,20 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
             break
         except urllib.error.HTTPError as e:
             if e.code == 429:
+                # тимчасове обмеження «запитів за хвилину» — чекаємо, скільки скаже Google (до 60 с), і пробуємо ще;
+                # денний ліміт (або дві невдачі поспіль) — зупиняємось до наступного запуску
+                wait = 0.0
+                try:
+                    err = json.loads(e.read().decode("utf-8")).get("error", {})
+                    daily = any("PerDay" in (v.get("quotaId") or "") for d in err.get("details", []) for v in d.get("violations", []))
+                    for d in err.get("details", []):
+                        if d.get("retryDelay"):
+                            wait = float(str(d["retryDelay"]).rstrip("s") or 0)
+                except Exception:
+                    daily = False
+                if not daily and attempt < 2 and wait <= 60:
+                    time.sleep(max(wait, 20) + 2)
+                    continue
                 raise QuotaExceeded() from e
             if e.code in (500, 502, 503, 504) and attempt < 2:
                 time.sleep(8 * (attempt + 1))  # модель тимчасово перевантажена — чекаємо й пробуємо ще
