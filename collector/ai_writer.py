@@ -195,6 +195,17 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
     raise QuotaExceeded()
 
 
+FOREIGN = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]")  # ієрогліфи, кана, хангиль
+CYR = re.compile(r"[а-яіїєґ]", re.I)
+
+
+def is_ukrainian(res: dict) -> bool:
+    """Текст ШІ придатний: без ієрогліфів і переважно кирилицею."""
+    blob = " ".join([res["title"], res["lead"], *res["body"], *res["points"]])
+    letters = [c for c in blob if c.isalpha()]
+    return not FOREIGN.search(blob) and len(CYR.findall(blob)) >= 0.6 * max(1, len(letters))
+
+
 def generate(material: str, key: str) -> dict | None:
     out = call(SYSTEM, material, SCHEMA, key)
     if not out:
