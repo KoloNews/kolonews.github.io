@@ -79,3 +79,31 @@ def dedupe_galleries(galleries: list[list[dict]], cache: dict) -> None:
         for im in kept:
             im.pop("_fp", None)
         g[:] = kept
+
+
+def thumbnail(url: str, size: int = 384) -> bytes | None:
+    """Зменшена копія фото (JPEG) — щоб ШІ подивився, чи є на ньому надрукований текст."""
+    if Image is None:
+        return None
+    try:
+        req = urllib.request.Request(urllib.parse.quote(url, safe=":/?&=%#+,;@~"), headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            data = r.read(MAX_BYTES)
+        im = Image.open(io.BytesIO(data))
+        im.draft("RGB", (size, size))
+        im = im.convert("RGB")
+        im.thumbnail((size, size))
+        out = io.BytesIO()
+        im.save(out, "JPEG", quality=70)
+        return out.getvalue()
+    except Exception:
+        return None
+
+
+def thumbnails(urls: list[str]) -> dict[str, bytes]:
+    res = {}
+    with cf.ThreadPoolExecutor(12) as ex:
+        for u, b in zip(urls, ex.map(thumbnail, urls)):
+            if b:
+                res[u] = b
+    return res

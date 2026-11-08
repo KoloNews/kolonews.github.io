@@ -24,6 +24,7 @@ import math
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -49,7 +50,10 @@ MAX_IMAGES = 8             # скільки фото в галереї істо�
 TEXT_LIMIT = 700           # скільки символів опису брати від кожного джерела
 
 TOPIC_RE = {t: re.compile(p, re.I) for t, p in TOPICS.items()}
-TOPIC_IDS = ["popular", *TOPICS]   # «Популярне» — усі новини за рейтингом
+# Порядок розділів на сайті. «Популярне» — усі новини за рейтингом.
+TOPIC_IDS = ["popular", "tech", "economy", "crime", "sport", "science", "games", "crypto"]
+# У цих розділах лише «Весь світ» (рішення користувача); в інших — усі регіони
+WORLD_ONLY = {"science", "games", "crypto"}
 REGION_IDS = ["world", "eurasia", "us", "cn", "ua"]  # Росію прибрано з регіонів (рішення користувача)
 AI_CACHE_FILE = DATA / "ai_cache.json"
 IMG_CACHE_FILE = DATA / "img_cache.json"
@@ -210,8 +214,13 @@ WORD_RE = re.compile(r"[\w'’]+", re.U)
 HAN_RE = re.compile(r"[一-鿿]+")
 
 
+def fold(text: str) -> str:
+    """Kraków → krakow: прибираємо наголоси й діакритику."""
+    return "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+
+
 def tokens(text: str, lang: str) -> set[str]:
-    text = text.lower()
+    text = fold(text.lower()) if lang == "en" else text.lower()
     out: set[str] = set()
     if lang == "zh":
         for run in HAN_RE.findall(text):
@@ -296,7 +305,7 @@ def categorize(group: list[dict]) -> list[str]:
 
 PALETTE = ["#2f5d8a", "#7a3b5c", "#2e6b5a", "#8a5a2b", "#4b3f8a", "#7a2f2f", "#3f6b2e", "#2b6c7a", "#6b5a2e", "#5c3f7a"]
 SITE_LANGS = ("uk", "en", "zh", "ru")
-MAX_SOURCES = 10
+MAX_SOURCES = 15
 
 
 def lead_key(i: dict):
@@ -358,11 +367,130 @@ def build_gallery(b: dict) -> None:
         b["image"] = gallery[0]["u"]
 
 
+def merge_events(groups: list[list[dict]], ai_cache: dict) -> list[list[dict]]:
+    """Другий етап: зливаємо історії про одну подію, навіть якщо заголовки різні
+    (наприклад, «стрілянина в Кракові» → «траур у Польщі» → «сім'ю стрільця знайшли мертвою»).
+    1) кандидати: щонайменше два спільні рідкісні слова в англійських заголовках і схожість ≥ 0.2;
+    2) ШІ підтверджує кожну пару («та сама подія?»), відповіді кешуються;
+       без ШІ зливаємо лише дуже схожі пари (≥ 0.45)."""
+    n = len(groups)
+    sig = []
+    for g in groups:
+        tk: set[str] = set()
+        for i in g:
+            tk |= {t for t in tokens(i["en_title"], "en") if not t.isdigit() and len(t) >= 4}
+        sig.append(tk)
+    df: dict[str, int] = {}
+    for tk in sig:
+        for t in tk:
+            df[t] = df.get(t, 0) + 1
+    limit = max(3, int(n * 0.025))
+    idf = {t: math.log((n + 1) / (c + 0.5)) for t, c in df.items()}
+    rare_index: dict[str, list[int]] = {}
+    for k, tk in enumerate(sig):
+        for t in tk:
+            if 2 <= df[t] <= limit:
+                rare_index.setdefault(t, []).append(k)
+    shared_cnt: dict[tuple[int, int], int] = {}
+    for idx in rare_index.values():
+        if len(idx) > 40:
+            continue
+        for a in range(len(idx)):
+            for b in range(a + 1, len(idx)):
+                shared_cnt[(idx[a], idx[b])] = shared_cnt.get((idx[a], idx[b]), 0) + 1
+    w = lambda s: sum(idf[t] for t in s)  # noqa: E731
+    cands = []
+    for (a, b), c in shared_cnt.items():
+        if c < 2:
+            continue
+        shared = {t for t in sig[a] & sig[b] if df[t] <= limit}
+        v = w(shared) / max(1e-9, min(w(sig[a]), w(sig[b])))
+        if v >= 0.2:
+            cands.append((v, a, b))
+    cands.sort(reverse=True)
+
+    def gkey(g):  # стабільний ключ групи — найперша публікація
+        return min(g, key=lambda i: (i["time"], i["url"]))["url"]
+
+    def label(g):
+        titles = list(dict.fromkeys(i["en_title"] for i in g))[:2]
+        return " / ".join(t[:160] for t in titles)
+
+    pairs = []
+    for v, a, b in cands[:700]:
+        ka, kb = sorted((gkey(groups[a]), gkey(groups[b])))
+        pk = hashlib.md5(f"{ka}|{kb}".encode()).hexdigest()[:16]
+        pairs.append((pk, v, a, b))
+    verdict = ai_writer.same_event([(pk, label(groups[a]), label(groups[b])) for pk, v, a, b in pairs], ai_cache, log)
+
+    parent = list(range(n))
+    size = [len(g) for g in groups]
+
+    def root(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    merged_pairs = 0
+    for pk, v, a, b in pairs:
+        ok = verdict.get(pk)
+        if ok is None:
+            ok = v >= 0.45  # ШІ ще не відповів — лише дуже схожі
+        if not ok:
+            continue
+        ra, rb = root(a), root(b)
+        if ra == rb or size[ra] + size[rb] > 80:
+            continue
+        parent[rb] = ra
+        size[ra] += size[rb]
+        merged_pairs += 1
+    out: dict[int, list[dict]] = {}
+    for k, g in enumerate(groups):
+        out.setdefault(root(k), []).extend(g)
+    return list(out.values())
+
+
+def verify_sections(bases: list[dict], ai_cache: dict) -> None:
+    """Друга перевірка ШІ: чи тема розділу — ГОЛОВНА тема новини. Перевіряємо лише тих,
+    хто претендує на місце в розділі (до 25 у кожному регіоні); відхилені вилітають з розділу."""
+    stories_ai = ai_cache.get("stories", {})
+    for _ in range(3):  # після відхилення в топ піднімаються нові — перевіряємо й їх
+        checks, seen = [], set()
+        known = ai_cache.get("ver", {})
+        for t in TOPICS:
+            for r in (["world"] if t in WORLD_ONLY else REGION_IDS):
+                n = 0
+                for b in bases:
+                    if t not in b["topics"] or r not in b["cats"]:
+                        continue
+                    k = f"{b['id']}:{t}"
+                    if known.get(k) is False:
+                        continue
+                    n += 1
+                    if k not in known and k not in seen:
+                        seen.add(k)
+                        lead = b["_lead"]
+                        ai_lead = stories_ai.get(b["id"], {}).get("a", {}).get("lead", "")
+                        text = f"{lead['en_title']} — {ai_lead or (lead.get('summary') or '')[:250]}"
+                        checks.append((k, t, " ".join(text.split())))
+                    if n >= PER_SECTION + 10:
+                        break
+        if not checks:
+            break
+        verdict = ai_writer.verify_topics(checks, ai_cache, log)
+        if not any(k in verdict for k, _, _ in checks):
+            break  # ШІ недоступний — лишаємо як є
+    known = ai_cache.get("ver", {})
+    for b in bases:
+        b["topics"] = [t for t in b["topics"] if known.get(f"{b['id']}:{t}") is not False]
+
+
 def select_shown(bases: list[dict]) -> list[dict]:
     """Залишаємо лише те, що буде на сайті: топ-15 за рейтингом у кожному «розділ × регіон»."""
     keep: set[str] = set()
     for t in TOPIC_IDS:
-        for r in REGION_IDS:
+        for r in (["world"] if t in WORLD_ONLY else REGION_IDS):
             n = 0
             for b in bases:  # bases уже відсортовані за рейтингом
                 if r in b["cats"] and (t == "popular" or t in b["topics"]):
@@ -424,7 +552,8 @@ def render_language(bases: list[dict], L: str, tr: Translator, ai: dict) -> tupl
                 if L != "uk":
                     story["aiTr"] = True  # перекладено з української
         if not ai_ok:
-            long_text = t(longest["lang"], longest["text"]) or (lead["text"] if lead["lang"] == L else "") or ""
+            # якщо переклад не вдався — краще оригінал, ніж порожньо
+            long_text = t(longest["lang"], longest["text"]) or (lead["text"] if lead["lang"] == L else "") or longest["text"] or ""
             if native:
                 story.update(title=lead["title"], summary=lead["summary"])
             else:
@@ -578,12 +707,20 @@ def main() -> int:
         ai_cache = json.loads(AI_CACHE_FILE.read_text("utf-8"))
     except (OSError, ValueError):
         ai_cache = {}
-    bases = [build_base(g, now) for g in cluster(items)]
-    for b in bases:  # тема, яку визначив ШІ раніше, теж враховуємо
-        at = ai_cache.get("stories", {}).get(b["id"], {}).get("a", {}).get("topic")
-        if at in TOPICS and at not in b["topics"]:
-            b["topics"].append(at)
+    groups = cluster(items)
+    events = merge_events(groups, ai_cache)
+    log(f"Об'єднання подій: {len(groups)} груп → {len(events)} історій")
+    bases = [build_base(g, now) for g in events]
     bases.sort(key=lambda s: s["score"], reverse=True)
+    # розділи й регіони визначає ШІ (точніше за ключові слова); без ШІ — ключові слова
+    ai_writer.classify(bases, ai_cache, log)
+    cls = ai_cache.get("cls", {})
+    for b in bases:
+        c = cls.get(b["id"])
+        if c is not None:
+            b["topics"] = [t for t in TOPICS if t in c["t"]]
+            b["cats"] = ["world"] + [r for r in REGION_IDS if r in c["r"]]
+    verify_sections(bases, ai_cache)
     shown = select_shown(bases)
     log(f"Історій усього: {len(bases)}, на сайті (топ-{PER_SECTION} у кожному розділі): {len(shown)}")
 
@@ -597,19 +734,21 @@ def main() -> int:
     for b in shown:
         build_gallery(b)
     images.dedupe_galleries([b["_gallery"] for b in shown], img_cache)
+    # головне фото — без надрукованого тексту (якщо фото з текстом єдине — лишаємо його)
+    txt = ai_cache.setdefault("txt", {})
+    need = [im["u"] for b in shown if len(b["_gallery"]) >= 2 for im in b["_gallery"][:MAX_IMAGES] if im["u"] not in txt]
+    if need and ai_writer.api_key():
+        ai_writer.image_text_flags(images.thumbnails(list(dict.fromkeys(need))[:160]), ai_cache, log)
     for b in shown:
-        if b["_gallery"]:
-            b["image"] = b["_gallery"][0]["u"]
+        g = b["_gallery"]
+        if len(g) >= 2:
+            g.sort(key=lambda im: bool(txt.get(im["u"])))  # фото без тексту — першими (порядок зберігається)
+        if g:
+            b["image"] = g[0]["u"]
 
     # 5. текст від ШІ (безкоштовний Gemini)
     ai_writer.run(shown, ai_cache, log)
     ai_stories = ai_cache.get("stories", {})
-    for b in shown:
-        # якщо ШІ визначив тему — вона точніша за ключові слова (тематичні стрічки лишаються)
-        at = ai_stories.get(b["id"], {}).get("a", {}).get("topic")
-        if at:
-            hinted = {h[2:] for i in b["_items"] for h in i["hints"] if h.startswith("t:")}
-            b["topics"] = [t for t in TOPICS if t in hinted or t == at]
 
     # 6. для кожної мови сайту
     names = sorted({n for feeds in FEEDS.values() for n, _, _ in feeds})

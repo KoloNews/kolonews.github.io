@@ -82,8 +82,11 @@ def refresher():
 
 def main():
     # сайт відкривається одразу (з останніми збереженими новинами), а свіжі збираються у фоні
-    print("Збираю свіжі новини у фоні (перший раз — до 2 хвилин)…", flush=True)
-    threading.Thread(target=refresher, daemon=True).start()
+    if "--no-refresh" in sys.argv:
+        print("Режим перегляду: новини не оновлюються.", flush=True)
+    else:
+        print("Збираю свіжі новини у фоні (перший раз — до 2 хвилин)…", flush=True)
+        threading.Thread(target=refresher, daemon=True).start()
 
     server = ThreadingHTTPServer(("0.0.0.0", PORT), partial(Handler, directory=str(ROOT)))
     ip = local_ip()

@@ -4,7 +4,7 @@
 Кожне джерело: (назва, адреса RSS, підказки).
 Підказки: "eurasia" — стрічка про Європу/Азію, "us" — про США,
 "trad" — китайський текст традиційними ієрогліфами,
-"t:<тема>" — тематична стрічка (science, tech, crime, sport, economy, games).
+"t:<тема>" — тематична стрічка (science, tech, crime, sport, economy, games, crypto).
 Щоб додати чи прибрати джерело, достатньо змінити цей список.
 """
 
@@ -26,6 +26,7 @@ FEEDS = {
         ("Куншт", "https://kunsht.com.ua/feed/", ["t:science"]),
         ("PlayUA", "https://playua.net/feed/", ["t:games"]),
         ("GameInside", "https://gameinside.ua/feed/", ["t:games"]),
+        ("Incrypted", "https://incrypted.com/ua/feed/", ["t:crypto"]),
     ],
     "en": [
         ("BBC News", "https://feeds.bbci.co.uk/news/world/rss.xml", []),
@@ -56,6 +57,11 @@ FEEDS = {
         ("PC Gamer", "https://www.pcgamer.com/rss/", ["t:games"]),
         ("Eurogamer", "https://www.eurogamer.net/feed", ["t:games"]),
         ("IGN", "https://feeds.feedburner.com/ign/all", ["t:games"]),
+        ("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/", ["t:crypto"]),
+        ("Cointelegraph", "https://cointelegraph.com/rss", ["t:crypto"]),
+        ("Decrypt", "https://decrypt.co/feed", ["t:crypto"]),
+        ("The Block", "https://www.theblock.co/rss.xml", ["t:crypto"]),
+        ("The Guardian", "https://www.theguardian.com/technology/cryptocurrencies/rss", ["t:crypto"]),
     ],
     "ru": [
         ("Би-би-си", "https://feeds.bbci.co.uk/russian/rss.xml", []),
@@ -66,6 +72,7 @@ FEEDS = {
         ("RFI", "https://www.rfi.fr/ru/rss", []),
         ("Euronews", "https://ru.euronews.com/rss", []),
         ("Хабр", "https://habr.com/ru/rss/news/", ["t:tech"]),
+        ("ForkLog", "https://forklog.com/feed", ["t:crypto"]),
     ],
     "zh": [
         # BBC 中文 віддає традиційні ієрогліфи — підказка "trad": перекладаємо у спрощені

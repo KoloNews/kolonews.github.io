@@ -12,7 +12,7 @@
 
   const T = {
     uk: {
-      popular: 'Популярне', science: 'Наука', tech: 'Технології', crime: 'Кримінал', sport: 'Спорт', economy: 'Економіка', games: 'Ігри',
+      popular: 'Популярне', science: 'Наука', tech: 'Технології', crime: 'Кримінал', sport: 'Спорт', economy: 'Економіка', games: 'Ігри', crypto: 'Криптовалюта',
       world: 'Весь світ', eurasia: 'Європа і Азія', us: 'США', cn: 'Китай', ua: 'Україна', ru: 'Росія',
       sections: 'Розділи', region: 'Регіон',
       stories: { one: 'історія', few: 'історії', many: 'історій', other: 'історії' },
@@ -30,7 +30,7 @@
       points: 'Головне', srcTitle: 'Джерела', descBy: 'Короткий опис від видання',
     },
     en: {
-      popular: 'Popular', science: 'Science', tech: 'Tech', crime: 'Crime', sport: 'Sport', economy: 'Economy', games: 'Games',
+      popular: 'Popular', science: 'Science', tech: 'Tech', crime: 'Crime', sport: 'Sport', economy: 'Economy', games: 'Games', crypto: 'Crypto',
       world: 'Whole world', eurasia: 'Europe & Asia', us: 'USA', cn: 'China', ua: 'Ukraine', ru: 'Russia',
       sections: 'Sections', region: 'Region',
       stories: { one: 'story', other: 'stories' },
@@ -48,7 +48,7 @@
       points: 'Key points', srcTitle: 'Sources', descBy: 'Short description from the outlet',
     },
     zh: {
-      popular: '热门', science: '科学', tech: '科技', crime: '犯罪', sport: '体育', economy: '经济', games: '游戏',
+      popular: '热门', science: '科学', tech: '科技', crime: '犯罪', sport: '体育', economy: '经济', games: '游戏', crypto: '加密货币',
       world: '全世界', eurasia: '欧洲与亚洲', us: '美国', cn: '中国', ua: '乌克兰', ru: '俄罗斯',
       sections: '栏目', region: '地区',
       stories: { other: '条报道' },
@@ -66,7 +66,7 @@
       points: '要点', srcTitle: '来源', descBy: '媒体简介',
     },
     ru: {
-      popular: 'Популярное', science: 'Наука', tech: 'Технологии', crime: 'Криминал', sport: 'Спорт', economy: 'Экономика', games: 'Игры',
+      popular: 'Популярное', science: 'Наука', tech: 'Технологии', crime: 'Криминал', sport: 'Спорт', economy: 'Экономика', games: 'Игры', crypto: 'Криптовалюта',
       world: 'Весь мир', eurasia: 'Европа и Азия', us: 'США', cn: 'Китай', ua: 'Украина', ru: 'Россия',
       sections: 'Разделы', region: 'Регион',
       stories: { one: 'история', few: 'истории', many: 'историй', other: 'истории' },
@@ -85,16 +85,28 @@
     },
   };
 
-  const GLOBE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
-  const EURASIA_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7.5c2-1.6 4.5-2.3 6.5-1.6 1.6.6 2 2 3.6 2.1 1.7.1 2.6-1.3 4.3-.9 1.3.3 2 1.4 1.6 2.6-.5 1.5-2.4 1.6-3 3-.6 1.3.5 2.8-.6 3.8-1.2 1.1-3 .2-4.2 1-.9.6-.9 2-2 2.4-1.5.5-2.7-1-3-2.4-.3-1.5.6-2.9-.2-4.1-.7-1.1-2.4-1-3.2-2C3.5 10.4 3.2 8.6 4 7.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
-  const TOPICS = [
-    { id: 'popular', icon: '🔥' }, { id: 'science', icon: '🔬' }, { id: 'tech', icon: '💻' }, { id: 'crime', icon: '🚨' },
-    { id: 'sport', icon: '⚽' }, { id: 'economy', icon: '📈' }, { id: 'games', icon: '🎮' },
-  ];
+  // однокольорові контурні іконки (колір тексту)
+  const ic = (d) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const ICONS = {
+    popular: ic('<path d="M12 3c1.2 3.4 4.5 5.4 4.5 9.6a4.5 4.5 0 0 1-9 0c0-2.2 1-3.6 2.1-4.6.1 2 1 3.2 2.1 3.4-.4-3.1-.5-5.6.3-8.4z"/>'),
+    tech: ic('<rect x="6.5" y="6.5" width="11" height="11" rx="2"/><rect x="9.8" y="9.8" width="4.4" height="4.4" rx=".8"/><path d="M9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3"/>'),
+    economy: ic('<path d="M3.5 16.5l5.5-5.5 4 4 7-7"/><path d="M15 8h5v5"/>'),
+    crime: ic('<path d="M12 3.2l7.5 2.8v5.6c0 4.6-3.2 7.9-7.5 9.2-4.3-1.3-7.5-4.6-7.5-9.2V6z"/><path d="M12 8.2v4.6M12 15.8v.1"/>'),
+    sport: ic('<circle cx="12" cy="12" r="8.6"/><path d="M12 7.6l3.6 2.6-1.4 4.2H9.8l-1.4-4.2z"/><path d="M12 3.4v4.2M15.6 10.2l4.2-1.4M14.2 14.4l2.6 3.6M9.8 14.4l-2.6 3.6M8.4 10.2l-4.2-1.4"/>'),
+    science: ic('<path d="M9.5 3.5h5M10.5 3.5v5.8L5.3 18a1.9 1.9 0 0 0 1.6 2.9h10.2a1.9 1.9 0 0 0 1.6-2.9l-5.2-8.7V3.5"/><path d="M7.6 15h8.8"/>'),
+    games: ic('<path d="M7 8h10a4.5 4.5 0 0 1 4.5 4.5v.3a3.7 3.7 0 0 1-6.6 2.3L14.3 14H9.7l-.6 1.1a3.7 3.7 0 0 1-6.6-2.3v-.3A4.5 4.5 0 0 1 7 8z"/><path d="M7.5 10.5v3.5M5.75 12.25h3.5M15.8 11.2v.1M17.8 13v.1"/>'),
+    crypto: ic('<rect x="4" y="12.5" width="3.4" height="7.5" rx="1"/><rect x="10.3" y="8" width="3.4" height="12" rx="1"/><rect x="16.6" y="4" width="3.4" height="16" rx="1"/>'),
+    world: ic('<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.6 2.6 2.6 14.6 0 17.2M12 3.4c-2.6 2.6-2.6 14.6 0 17.2"/>'),
+    eurasia: ic('<circle cx="12" cy="12" r="8.6"/><path d="M6.2 7.6c1.5-.3 2.4.4 3.4 1.4.9.9 2.2.6 3.2.1 1.4-.7 3-.4 4 .8M8 15.2c1.2-.8 2.6-.5 3.6.3 1 .8 2.4.9 3.6.2"/>'),
+  };
+  // порядок розділів; у науці, іграх і криптовалюті — лише «Весь світ»
+  const TOPICS = ['popular', 'tech', 'economy', 'crime', 'sport', 'science', 'games', 'crypto'].map((id) => ({ id, svg: ICONS[id] }));
+  const WORLD_ONLY = new Set(['science', 'games', 'crypto']);
   const REGIONS = [
-    { id: 'world', svg: GLOBE }, { id: 'eurasia', svg: EURASIA_ICON },
-    { id: 'us', icon: '🇺🇸' }, { id: 'cn', icon: '🇨🇳' }, { id: 'ua', icon: '🇺🇦' },
+    { id: 'world', svg: ICONS.world }, { id: 'eurasia', svg: ICONS.eurasia },
+    { id: 'us', cc: 'US' }, { id: 'cn', cc: 'CN' }, { id: 'ua', cc: 'UA' },
   ];
+  const iconOf = (x) => (x.svg ? x.svg : `<span class="cc" aria-hidden="true">${x.cc}</span>`);
   const TOPIC_IDS = TOPICS.map((x) => x.id);
   const REGION_IDS = REGIONS.map((x) => x.id);
   const PER_SECTION = 15;
@@ -152,27 +164,37 @@
   const AI_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18.5 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="currentColor"/></svg>';
   const matches = (s, topic, region) => s.cats.includes(region) && (topic === 'popular' || (s.topics || []).includes(topic)) && fresh(s);
   const sectionList = (topic, region) => (state.data ? state.data.stories.filter((s) => matches(s, topic, region)).slice(0, PER_SECTION) : []);
-  const hashFor = (topic, region, id) => `#${topic}/${region}${id ? `/${id}` : ''}`;
+  const regionFor = (topic, region) => (WORLD_ONLY.has(topic) ? 'world' : region);
+  const hashFor = (topic, region, id) => `#${topic}/${regionFor(topic, region)}${id ? `/${id}` : ''}`;
 
   // ---------------------------------------------------------------- меню: розділи × регіони
   function buildNav() {
     const L = t();
     el.labelT.textContent = L.sections;
     el.labelR.textContent = L.region;
-    const icon = (x) => (x.svg ? x.svg : `<span class="flag">${x.icon}</span>`);
+    const icon = iconOf;
     el.sideTopics.innerHTML = '<span class="side-ind"></span>' + TOPICS.map((x) =>
       `<button class="side-link" data-topic="${x.id}" type="button">${icon(x)}<span>${esc(L[x.id])}</span><span class="count" data-ct="${x.id}"></span></button>`).join('');
     el.sideRegions.innerHTML = '<span class="side-ind"></span>' + REGIONS.map((x) =>
       `<button class="side-link" data-region="${x.id}" type="button">${icon(x)}<span>${esc(L[x.id])}</span><span class="count" data-cr="${x.id}"></span></button>`).join('');
     el.chipsT.innerHTML = '<span class="chip-ind"></span>' + TOPICS.map((x) =>
-      `<button class="chip" data-topic="${x.id}" type="button"><span class="flag">${x.icon}</span>${esc(L[x.id])}</button>`).join('');
+      `<button class="chip" data-topic="${x.id}" type="button">${iconOf(x)}${esc(L[x.id])}</button>`).join('');
     el.chipsR.innerHTML = '<span class="chip-ind"></span>' + REGIONS.map((x) =>
-      `<button class="chip" data-region="${x.id}" type="button">${x.icon ? `<span class="flag">${x.icon}</span>` : ''}${esc(L[x.id])}</button>`).join('');
+      `<button class="chip" data-region="${x.id}" type="button">${iconOf(x)}${esc(L[x.id])}</button>`).join('');
     markNav(false);
     renderCounts();
   }
 
+  function toggleRegions() {
+    // у науці, іграх і криптовалюті показуємо лише підкатегорію «Весь світ»
+    const worldOnly = WORLD_ONLY.has(state.topic);
+    [el.sideRegions, el.chipsR].forEach((box) => box.querySelectorAll('[data-region]').forEach((b) => {
+      b.hidden = worldOnly && b.dataset.region !== 'world';
+    }));
+  }
+
   function markNav(animate = true) {
+    toggleRegions();
     [el.sideTopics, el.chipsT].forEach((box) => box.querySelectorAll('[data-topic]').forEach((b) => {
       const on = b.dataset.topic === state.topic;
       b.classList.toggle('active', on);
@@ -205,7 +227,7 @@
 
   function renderCounts() {
     if (!state.data) return;
-    document.querySelectorAll('[data-ct]').forEach((c) => { c.textContent = sectionList(c.dataset.ct, state.region).length || ''; });
+    document.querySelectorAll('[data-ct]').forEach((c) => { c.textContent = sectionList(c.dataset.ct, regionFor(c.dataset.ct, state.region)).length || ''; });
     document.querySelectorAll('[data-cr]').forEach((c) => { c.textContent = sectionList(state.topic, c.dataset.cr).length || ''; });
   }
 
@@ -242,7 +264,7 @@
   // ---------------------------------------------------------------- картки
   function pill(s) {
     const L = t();
-    if (s.ai) return `<span class="tr-pill ai" title="${esc(L.aiBy(countText(s.sourceCount, L.sources)))}">${AI_ICON}${esc(L.aiShort)}</span>`;
+    if (s.ai) return ''; // позначку «ШІ» на картках прибрано (рішення користувача)
     if (s.orig) return `<span class="tr-pill${s.tr === false ? ' raw' : ''}" title="${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}">${TR_ICON}${esc(SHORT[s.orig.lang] || s.orig.lang)}</span>`;
     return '';
   }
@@ -327,7 +349,7 @@
   let swapTimer;
   function go(topic, region, push = true) {
     topic = TOPIC_IDS.includes(topic) ? topic : 'popular';
-    region = REGION_IDS.includes(region) ? region : 'world';
+    region = regionFor(topic, REGION_IDS.includes(region) ? region : 'world');
     const target = hashFor(topic, region);
     if (push && location.hash !== target) history.pushState({ topic, region }, '', target);
     const same = topic === state.topic && region === state.region;
@@ -447,9 +469,7 @@
 
   function infoLine(s) {
     const L = t();
-    if (s.ai) {
-      return `<div class="d-tr ai">${AI_ICON}<span>${esc(L.aiBy(countText(s.sourceCount, L.sources)))}${s.aiTr ? ` · ${esc(L.aiTr)}` : ''}</span></div>`;
-    }
+    if (s.ai) return ''; // рядок «Текст написав ШІ» прибрано (рішення користувача)
     if (!s.orig) return '';
     return `<div class="d-tr">${TR_ICON}<span>${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}</span>${s.tr === false ? '' : `<button type="button" id="tr-toggle">${esc(L.showOrig)}</button>`}</div>`;
   }
@@ -507,29 +527,40 @@
       const b = e.target.closest('[data-g]');
       if (b) show(index + Number(b.dataset.g));
     });
-    // тачпад: вертикальне гортання завжди гортає сторінку, горизонтальний свайп перемикає фото
-    let lock = 0;
+    // тачпад: вертикальне гортання завжди гортає сторінку, горизонтальний свайп перемикає фото.
+    // Один свайп = одне фото. Після свайпу тачпад ще якийсь час шле «інерційні» події, які лише
+    // СЛАБШАЮТЬ — їх ігноруємо. Новий свайп видно за різким ПОСИЛЕННЯМ руху (або після паузи).
+    let acc = 0;
+    let fired = false;
+    let firedAt = 0;
+    let lastAbs = 0;
+    let quiet;
     track.addEventListener('wheel', (e) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      if (Math.abs(e.deltaX) < 8 || Date.now() < lock) return;
-      lock = Date.now() + 550;
-      show(index + (e.deltaX > 0 ? 1 : -1));
+      const a = Math.abs(e.deltaX);
+      clearTimeout(quiet);
+      quiet = setTimeout(() => { acc = 0; fired = false; lastAbs = 0; }, 160);
+      if (fired && Date.now() - firedAt > 280 && a > lastAbs + 6 && a > 10) {
+        fired = false; // рух посилився — це новий свайп, а не інерція
+        acc = 0;
+      }
+      lastAbs = a;
+      if (fired) return;
+      acc += e.deltaX;
+      if (Math.abs(acc) < 30) return;
+      fired = true;
+      firedAt = Date.now();
+      show(index + (acc > 0 ? 1 : -1));
     }, { passive: false });
     sync();
   }
 
   function sourcesHTML(list) {
+    // лише посилання: назва видання + стрілка (рішення користувача)
     const L = t();
-    return list.map((x, k) => `
-      <a class="sp-src" style="--k:${k}" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer" aria-label="${esc(L.readAt)} ${esc(x.name)}">
-        <span class="av">${esc(initials(x.name))}</span>
-        <span class="sp-src-main">
-          <span class="sp-src-head"><b>${esc(x.name)}</b>${baseLang(x.lang) !== state.lang ? `<em class="lang-tag">${esc(SHORT[x.lang] || x.lang)}</em>` : ''}<time datetime="${esc(x.time)}">${esc(ago(x.time))}</time></span>
-          ${x.title ? `<span class="sp-src-title">${esc(x.title)}</span>` : ''}
-        </span>
-        <span class="sp-src-go">${ARROW}</span>
-      </a>`).join('');
+    return list.filter((x) => x.url && x.url !== '#').map((x, k) => `
+      <a class="src-link" style="--k:${k}" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer" title="${esc(L.readAt)} ${esc(x.name)}">${esc(x.name)}${ARROW}</a>`).join('');
   }
 
   function bodyHTML(s, d) {
@@ -553,11 +584,11 @@
     const L = t();
     const tp = (s.topics || []).map((id) => {
       const x = TOPICS.find((y) => y.id === id);
-      return `<button class="sp-pill" type="button" data-topic="${id}" data-go="1"><span class="flag">${x ? x.icon : ''}</span>${esc(L[id])}</button>`;
+      return `<button class="sp-pill" type="button" data-topic="${id}" data-go="1">${x ? iconOf(x) : ''}${esc(L[id])}</button>`;
     });
     const rg = s.cats.filter((c) => c !== 'world' && REGION_IDS.includes(c)).map((id) => {
       const x = REGIONS.find((y) => y.id === id);
-      return `<button class="sp-pill" type="button" data-region="${id}" data-go="1">${x && x.icon ? `<span class="flag">${x.icon}</span>` : ''}${esc(L[id])}</button>`;
+      return `<button class="sp-pill" type="button" data-region="${id}" data-go="1">${x ? iconOf(x) : ''}${esc(L[id])}</button>`;
     });
     return tp.concat(rg).join('');
   }
@@ -650,11 +681,8 @@
   // ---------------------------------------------------------------- маршрути: #розділ/регіон[/id]
   function parseHash() {
     const [a, b, c] = location.hash.replace('#', '').split('/');
-    return {
-      topic: TOPIC_IDS.includes(a) ? a : 'popular',
-      region: REGION_IDS.includes(b) ? b : 'world',
-      id: c || null,
-    };
+    const topic = TOPIC_IDS.includes(a) ? a : 'popular';
+    return { topic, region: regionFor(topic, REGION_IDS.includes(b) ? b : 'world'), id: c || null };
   }
 
   function route() {
