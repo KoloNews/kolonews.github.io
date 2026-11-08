@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,7 +32,7 @@ jobs:
         with:
           path: |
             data/translations.json
-            data/og_cache.json
+            data/meta_cache.json
           key: kolo-cache-${{ github.run_id }}
           restore-keys: kolo-cache-
       - name: Зібрати новини
@@ -42,6 +42,7 @@ jobs:
           mkdir -p _site/data
           cp -r index.html manifest.webmanifest assets _site/
           cp data/uk.json data/en.json data/zh.json data/ru.json _site/data/
+          cp -r data/uk data/en data/zh data/ru _site/data/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

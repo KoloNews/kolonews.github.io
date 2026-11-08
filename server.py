@@ -22,7 +22,8 @@ import fetch_news  # noqa: E402
 
 PORT = 8000
 REFRESH_MIN = 20
-ALLOWED = ("/", "/index.html", "/manifest.webmanifest", "/assets/", "/data/uk.json", "/data/en.json", "/data/zh.json", "/data/ru.json")
+ALLOWED = ("/", "/index.html", "/manifest.webmanifest", "/assets/", "/data/uk.json", "/data/en.json", "/data/zh.json", "/data/ru.json",
+           "/data/uk/", "/data/en/", "/data/zh/", "/data/ru/")
 
 
 class Handler(SimpleHTTPRequestHandler):

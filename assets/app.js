@@ -21,6 +21,8 @@
       retry: 'Спробувати ще', refresh: 'Оновити', theme: 'Змінити тему', close: 'Закрити', language: 'Мова',
       fresh: (n) => `Нових історій: ${n}`, upToDate: 'Новини актуальні',
       note: (n) => `Джерел: ${n}, 4 мовами. Переклад — Google Translate.`, justNow: 'щойно',
+      back: 'Назад', related: 'Більше новин', photo: 'Фото', prev: 'Попереднє фото', next: 'Наступне фото',
+      gone: 'Цієї новини вже немає: вона старша за 24 години.',
       machine: 'Машинний переклад', original: 'оригінал', showOrig: 'Показати оригінал', showTr: 'Показати переклад',
       noTr: 'Переклад тимчасово недоступний — показано оригінал', origLang: 'Оригінал',
     },
@@ -34,6 +36,8 @@
       retry: 'Try again', refresh: 'Refresh', theme: 'Switch theme', close: 'Close', language: 'Language',
       fresh: (n) => `New stories: ${n}`, upToDate: 'You’re up to date',
       note: (n) => `${n} sources in 4 languages. Translation by Google Translate.`, justNow: 'just now',
+      back: 'Back', related: 'More news', photo: 'Photo', prev: 'Previous photo', next: 'Next photo',
+      gone: 'This story is gone: it’s older than 24 hours.',
       machine: 'Machine translation', original: 'original', showOrig: 'Show original', showTr: 'Show translation',
       noTr: 'Translation is unavailable right now — showing the original', origLang: 'Original',
     },
@@ -47,6 +51,8 @@
       retry: '重试', refresh: '刷新', theme: '切换主题', close: '关闭', language: '语言',
       fresh: (n) => `新报道：${n}`, upToDate: '已是最新',
       note: (n) => `来源：${n}个，4种语言。翻译：Google 翻译。`, justNow: '刚刚',
+      back: '返回', related: '更多新闻', photo: '图片', prev: '上一张', next: '下一张',
+      gone: '该新闻已超过24小时，无法查看。',
       machine: '机器翻译', original: '原文', showOrig: '显示原文', showTr: '显示译文',
       noTr: '暂时无法翻译，显示原文', origLang: '原文',
     },
@@ -60,6 +66,8 @@
       retry: 'Попробовать снова', refresh: 'Обновить', theme: 'Сменить тему', close: 'Закрыть', language: 'Язык',
       fresh: (n) => `Новых историй: ${n}`, upToDate: 'Новости актуальны',
       note: (n) => `Источников: ${n}, на 4 языках. Перевод — Google Translate.`, justNow: 'только что',
+      back: 'Назад', related: 'Больше новостей', photo: 'Фото', prev: 'Предыдущее фото', next: 'Следующее фото',
+      gone: 'Этой новости уже нет: она старше 24 часов.',
       machine: 'Машинный перевод', original: 'оригинал', showOrig: 'Показать оригинал', showTr: 'Показать перевод',
       noTr: 'Перевод временно недоступен — показан оригинал', origLang: 'Оригинал',
     },
@@ -100,7 +108,7 @@
     grid: $('grid'), title: $('sec-title'), sub: $('sec-sub'), head: $('section-head'), updated: $('updated'),
     sideNav: $('side-nav'), sideInd: $('side-ind'), chips: $('chips'), chipInd: $('chip-ind'), note: $('side-note'),
     langSeg: $('lang-seg'), langDrop: $('lang-drop'), langBtn: $('lang-btn'), langMenu: $('lang-menu'),
-    refresh: $('refresh'), theme: $('theme'), sheet: $('sheet'), panel: $('sheet-panel'), sheetBody: $('sheet-body'),
+    refresh: $('refresh'), theme: $('theme'), listView: $('list-view'), story: $('story-view'),
     toast: $('toast'), sentinel: $('sentinel'), splash: $('splash'),
   };
 
@@ -207,14 +215,13 @@
     el.refresh.title = L.refresh;
     el.theme.setAttribute('aria-label', L.theme);
     el.theme.title = L.theme;
-    $('sheet-close').setAttribute('aria-label', L.close);
   }
 
   // ---------------------------------------------------------------- картки
   function cardHTML(s, i, hero) {
     const L = t();
     const n = s.sourceCount;
-    const names = [...new Set(s.sources.map((x) => x.name))];
+    const names = s.names || [];
     const av = names.slice(0, 3).map((nm) => `<i>${esc(initials(nm).slice(0, 1))}</i>`).join('');
     const more = names.length > 2 ? ` +${names.length - 2}` : '';
     const img = s.image
@@ -259,7 +266,7 @@
       void el.head.offsetWidth;
       el.head.classList.add('swap');
     }
-    document.title = state.cat === 'world' ? 'Коло Новин' : `${L[state.cat]} — Коло Новин`;
+    if (!state.openId) document.title = state.cat === 'world' ? 'Коло Новин' : `${L[state.cat]} — Коло Новин`;
   }
 
   function renderCounts() {
@@ -309,6 +316,7 @@
   function switchCat(cat, push = true) {
     if (!CAT_IDS.includes(cat)) cat = 'world';
     if (push && location.hash !== `#${cat}`) history.pushState({ cat }, '', `#${cat}`);
+    if (state.openId) closeStory(true, cat === state.cat);
     if (cat === state.cat && el.grid.children.length) return;
     state.cat = cat;
     markNav(true);
@@ -338,6 +346,7 @@
     skeleton();
     el.grid.classList.remove('leaving');
     await load(false);
+    if (state.openId) openStory(state.openId, false);
   }
 
   function closeLangMenu() {
@@ -402,103 +411,207 @@
     }, wait);
   }
 
-  // ---------------------------------------------------------------- детальна історія
-  function openStory(id, push = true) {
-    const s = state.data && state.data.stories.find((x) => x.id === id);
-    if (!s) return;
-    const L = t();
-    state.openId = id;
-    el.panel.style.setProperty('--c', s.color);
-    const main = s.sources[0];
-    el.sheetBody.innerHTML = `
-      ${s.image ? `<div class="d-media"><img src="${esc(safeUrl(s.image))}" alt="" referrerpolicy="no-referrer"></div>` : '<div class="d-media" style="aspect-ratio:16/5"></div>'}
-      <div class="d-body">
-        <div class="meta"><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time>${esc(ago(s.time))}</time></div>
-        <h2 id="sheet-title">${esc(s.title)}</h2>
-        ${s.orig ? `<div class="d-tr">${TR_ICON}<span>${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}</span>${s.tr === false ? '' : `<button type="button" id="tr-toggle">${esc(L.showOrig)}</button>`}</div>` : ''}
-        <p class="d-sum"${s.summary ? '' : ' hidden'}>${esc(s.summary)}</p>
-        <div class="d-label">${esc(L.whatSources)}</div>
-        <ul class="d-sources">${s.sources.map((x) => `
-          <li><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">
-            <span class="av">${esc(initials(x.name))}</span>
-            <div><b>${esc(x.name)}${baseLang(x.lang) !== state.lang ? `<em class="lang-tag">${esc(SHORT[x.lang] || x.lang)}</em>` : ''}<time>${esc(ago(x.time))}</time></b><span>${esc(x.title)}</span></div>
-          </a></li>`).join('')}
-        </ul>
-        <a class="d-read" href="${esc(safeUrl(main.url))}" target="_blank" rel="noopener noreferrer">${esc(L.readAt)} ${esc(main.name)}
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-      </div>`;
-    const img = el.sheetBody.querySelector('img');
-    if (img) img.addEventListener('error', () => img.remove(), { once: true });
-    const toggle = $('tr-toggle');
-    if (toggle) {
-      let showingOrig = false;
-      toggle.addEventListener('click', () => {
-        showingOrig = !showingOrig;
-        const h = $('sheet-title');
-        const p = el.sheetBody.querySelector('.d-sum');
-        const src = showingOrig ? s.orig : s;
-        [h, p].forEach((node) => node.classList.remove('swap-in'));
-        void h.offsetWidth;
-        h.textContent = src.title;
-        h.lang = showingOrig ? s.orig.lang : '';
-        p.textContent = src.summary || '';
-        p.hidden = !src.summary;
-        [h, p].forEach((node) => node.classList.add('swap-in'));
-        toggle.textContent = showingOrig ? L.showTr : L.showOrig;
-      });
-    }
-    el.panel.scrollTop = 0;
-    el.panel.style.transform = '';
-    el.sheet.classList.add('open');
-    el.sheet.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-    if (push) history.pushState({ cat: state.cat, story: id }, '', `#${state.cat}/${id}`);
-    setTimeout(() => $('sheet-close').focus({ preventScroll: true }), 50);
+  // ---------------------------------------------------------------- сторінка історії
+  const ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const CHEV = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="${d === 'l' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const details = new Map();   // кеш завантажених історій: "мова/id" -> дані
+  let listScroll = 0;
+  let storyToken = 0;
+
+  async function fetchDetail(id) {
+    const key = `${state.lang}/${id}`;
+    if (details.has(key)) return details.get(key);
+    const res = await fetch(`data/${state.lang}/${encodeURIComponent(id)}.json?t=${state.data ? Date.parse(state.data.generated) : 0}`);
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    details.set(key, d);
+    return d;
   }
 
-  function closeStory(fromHistory = false) {
+  function trLine(s) {
+    const L = t();
+    if (!s.orig) return '';
+    return `<div class="d-tr">${TR_ICON}<span>${esc(s.tr === false ? L.noTr : `${L.machine} · ${L.original}: ${langName(s.orig.lang)}`)}</span>${s.tr === false ? '' : `<button type="button" id="tr-toggle">${esc(L.showOrig)}</button>`}</div>`;
+  }
+
+  function galleryHTML(images) {
+    const L = t();
+    if (!images.length) return '<div class="gallery empty-g"></div>';
+    const many = images.length > 1;
+    return `<div class="gallery" id="gallery">
+      <div class="g-track" id="g-track">${images.map((im, k) => `
+        <figure class="g-item"><img src="${esc(safeUrl(im.u))}" alt="" loading="${k < 2 ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer">
+          <figcaption>${esc(L.photo)}: ${esc(im.s)}</figcaption></figure>`).join('')}
+      </div>
+      ${many ? `<button class="g-nav prev" type="button" data-g="-1" aria-label="${esc(L.prev)}">${CHEV('l')}</button>
+      <button class="g-nav next" type="button" data-g="1" aria-label="${esc(L.next)}">${CHEV('r')}</button>
+      <div class="g-count" id="g-count">1 / ${images.length}</div>
+      <div class="g-dots" id="g-dots">${images.map((_, k) => `<i class="${k ? '' : 'on'}"></i>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  function wireGallery() {
+    const track = $('g-track');
+    if (!track) return;
+    const figs = () => [...track.querySelectorAll('.g-item')];
+    track.querySelectorAll('img').forEach((img) => {
+      const ok = () => img.classList.add('ok');
+      const bad = () => { img.closest('.g-item').remove(); sync(); };
+      if (img.complete && img.naturalWidth) ok();
+      else if (img.complete) bad();
+      else { img.addEventListener('load', ok, { once: true }); img.addEventListener('error', bad, { once: true }); }
+    });
+    function sync() {
+      const n = figs().length;
+      const g = $('gallery');
+      if (!g) return;
+      if (!n) { g.classList.add('empty-g'); g.innerHTML = ''; return; }
+      const k = Math.round(track.scrollLeft / Math.max(track.clientWidth, 1));
+      const cnt = $('g-count');
+      if (cnt) cnt.textContent = `${Math.min(k + 1, n)} / ${n}`;
+      const dots = $('g-dots');
+      if (dots) {
+        while (dots.children.length > n) dots.lastChild.remove();
+        [...dots.children].forEach((d, i) => d.classList.toggle('on', i === k));
+      }
+      g.classList.toggle('single', n < 2);
+    }
+    track.addEventListener('scroll', () => requestAnimationFrame(sync), { passive: true });
+    $('gallery').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-g]');
+      if (b) track.scrollBy({ left: Number(b.dataset.g) * track.clientWidth, behavior: 'smooth' });
+    });
+    sync();
+  }
+
+  function sourcesHTML(list) {
+    const L = t();
+    return list.map((x, k) => `
+      <div class="sp-src" style="--k:${k}">
+        <div class="sp-src-head"><span class="av">${esc(initials(x.name))}</span><b>${esc(x.name)}</b>${baseLang(x.lang) !== state.lang ? `<em class="lang-tag">${esc(SHORT[x.lang] || x.lang)}</em>` : ''}<time>${esc(ago(x.time))}</time></div>
+        <h3 data-o="${esc(x.oTitle || '')}">${esc(x.title)}</h3>
+        ${x.text ? `<p data-o="${esc(x.oText || '')}">${esc(x.text)}</p>` : ''}
+        <a class="sp-link" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener noreferrer">${esc(L.readAt)} ${esc(x.name)} ${ARROW}</a>
+      </div>`).join('');
+  }
+
+  function relatedHTML(s) {
+    const pool = state.data.stories.filter((x) => x.id !== s.id && fresh(x));
+    const cat = s.cats.find((c) => c !== 'world' && c === state.cat) || s.cats.find((c) => c !== 'world') || 'world';
+    const rel = pool.filter((x) => x.cats.includes(cat)).slice(0, 6);
+    return rel.map((x, k) => cardHTML(x, k, false)).join('');
+  }
+
+  function catPills(s) {
+    return s.cats.filter((c) => c !== 'world').map((c) => {
+      const cc = CATS.find((x) => x.id === c);
+      return `<button class="sp-pill" type="button" data-cat="${c}">${cc && cc.flag ? `<span class="flag">${cc.flag}</span>` : ''}${esc(t()[c])}</button>`;
+    }).join('');
+  }
+
+  // відкриваємо одразу з даними стрічки, а фото й тексти джерел догружаємо
+  async function openStory(id, push = true) {
+    const s = state.data && state.data.stories.find((x) => x.id === id);
+    const L = t();
+    const token = ++storyToken;
+    if (!state.openId) listScroll = window.scrollY;
+    state.openId = id;
+    if (push) history.pushState({ cat: state.cat, story: id }, '', `#${state.cat}/${id}`);
+    el.listView.hidden = true;
+    el.story.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    if (!s) {
+      el.story.innerHTML = `<div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button></div><div class="empty"><span class="logo"></span><div>${esc(L.gone)}</div></div>`;
+      return;
+    }
+    document.title = `${s.title} — Коло Новин`;
+    el.story.style.setProperty('--c', s.color);
+    el.story.innerHTML = `
+      <div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button><div class="sp-pills">${catPills(s)}</div></div>
+      <header class="sp-head">
+        <div class="meta"><span class="avatars">${(s.names || []).slice(0, 3).map((n) => `<i>${esc(initials(n).slice(0, 1))}</i>`).join('')}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time>${esc(ago(s.time))}</time></div>
+        <h1 id="sp-title">${esc(s.title)}</h1>
+        ${trLine(s)}
+      </header>
+      <div id="sp-gallery">${galleryHTML(s.image ? [{ u: s.image, s: (s.names || [''])[0] }] : [])}</div>
+      <p class="sp-lead" id="sp-lead">${esc(s.summary || '')}</p>
+      <section class="sp-sources" id="sp-sources"><h2>${esc(L.whatSources)}</h2><div class="sp-skel"></div><div class="sp-skel"></div></section>
+      <section class="sp-related"><h2>${esc(L.related)}</h2><div class="grid related" id="sp-related">${relatedHTML(s)}</div></section>`;
+    wireGallery();
+    wireImages($('sp-related'));
+    try {
+      const d = await fetchDetail(id);
+      if (token !== storyToken) return;
+      if (d.images && d.images.length > (s.image ? 1 : 0)) {
+        $('sp-gallery').innerHTML = galleryHTML(d.images);
+        wireGallery();
+      }
+      if (d.text && d.text.length > (s.summary || '').length) $('sp-lead').textContent = d.text;
+      $('sp-sources').innerHTML = `<h2>${esc(L.whatSources)}</h2>${sourcesHTML(d.sources)}`;
+      wireToggle(s, d);
+    } catch (e) {
+      if (token !== storyToken) return;
+      $('sp-sources').innerHTML = `<h2>${esc(L.whatSources)}</h2>${sourcesHTML((s.names || []).map((n) => ({ name: n, title: '', url: '#', time: s.time, lang: state.lang })))}`;
+      wireToggle(s, null);
+    }
+  }
+
+  function wireToggle(s, d) {
+    const toggle = $('tr-toggle');
+    if (!toggle) return;
+    const L = t();
+    let orig = false;
+    toggle.addEventListener('click', () => {
+      orig = !orig;
+      const h = $('sp-title');
+      const lead = $('sp-lead');
+      h.textContent = orig ? s.orig.title : s.title;
+      h.lang = orig ? s.orig.lang : '';
+      lead.textContent = orig ? (s.orig.text || s.orig.summary || '') : ((d && d.text) || s.summary || '');
+      [h, lead].forEach((n) => { n.classList.remove('swap-in'); void n.offsetWidth; n.classList.add('swap-in'); });
+      document.querySelectorAll('#sp-sources [data-o]').forEach((n) => {
+        if (!n.dataset.o) return;
+        if (!n.dataset.t) n.dataset.t = n.textContent;
+        n.textContent = orig ? n.dataset.o : n.dataset.t;
+      });
+      toggle.textContent = orig ? L.showTr : L.showOrig;
+    });
+  }
+
+  function closeStory(fromHistory = false, restore = true) {
     if (!state.openId) return;
     const id = state.openId;
     state.openId = null;
-    el.sheet.classList.remove('open');
-    el.sheet.setAttribute('aria-hidden', 'true');
-    el.panel.style.transform = '';
-    document.body.style.overflow = '';
+    storyToken++;
+    el.story.hidden = true;
+    el.story.innerHTML = '';
+    el.listView.hidden = false;
+    el.listView.classList.remove('back-in');
+    void el.listView.offsetWidth;
+    el.listView.classList.add('back-in');
+    renderHead(false);
+    if (restore) window.scrollTo({ top: listScroll, behavior: 'auto' });
     if (!fromHistory && history.state && history.state.story) history.back();
     const card = el.grid.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (card) card.focus({ preventScroll: true });
   }
 
-  // свайп униз закриває шторку на телефоні
-  (() => {
-    let y0 = null; let dy = 0;
-    el.panel.addEventListener('touchstart', (e) => {
-      if (el.panel.scrollTop > 0 || window.innerWidth > 720) { y0 = null; return; }
-      y0 = e.touches[0].clientY; dy = 0;
-    }, { passive: true });
-    el.panel.addEventListener('touchmove', (e) => {
-      if (y0 === null) return;
-      dy = e.touches[0].clientY - y0;
-      if (dy > 0) {
-        el.panel.classList.add('dragging');
-        el.panel.style.transform = `translateY(${dy}px)`;
-      }
-    }, { passive: true });
-    el.panel.addEventListener('touchend', () => {
-      if (y0 === null) return;
-      el.panel.classList.remove('dragging');
-      if (dy > 110) closeStory();
-      else el.panel.style.transform = '';
-      y0 = null;
-    });
-  })();
+  function goBack() {
+    if (history.state && history.state.story) history.back();
+    else { closeStory(true); history.pushState({ cat: state.cat }, '', `#${state.cat}`); }
+  }
 
   // ---------------------------------------------------------------- маршрути (#ua, #ua/<id>)
   function route(push) {
     const [cat, id] = location.hash.replace('#', '').split('/');
     const c = CAT_IDS.includes(cat) ? cat : 'world';
-    if (c !== state.cat) switchCat(c, false);
-    if (id && state.data) { if (state.openId !== id) openStory(id, false); } else closeStory(true);
+    if (id && state.data) {
+      if (c !== state.cat) { state.cat = c; markNav(false); renderList(false); }
+      if (state.openId !== id) openStory(id, false);
+    } else {
+      if (state.openId) closeStory(true, c === state.cat);
+      if (c !== state.cat) switchCat(c, false);
+    }
     return push;
   }
 
@@ -508,13 +621,17 @@
     if (catBtn) { switchCat(catBtn.dataset.cat); return; }
     const langBtn = e.target.closest('[data-lang]');
     if (langBtn) { setLang(langBtn.dataset.lang); return; }
-    if (e.target.closest('[data-close]')) { closeStory(); return; }
+    if (e.target.closest('[data-back]')) { goBack(); return; }
     const card = e.target.closest('.card');
     if (card) { openStory(card.dataset.id); return; }
     if (!e.target.closest('#lang-drop')) closeLangMenu();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeStory(); closeLangMenu(); }
+    if (e.key === 'Escape') { if (state.openId) goBack(); closeLangMenu(); }
+    if (state.openId && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $('g-track') && !e.target.closest('input,textarea')) {
+      const tr = $('g-track');
+      tr.scrollBy({ left: (e.key === 'ArrowLeft' ? -1 : 1) * tr.clientWidth, behavior: 'smooth' });
+    }
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('card')) {
       e.preventDefault(); openStory(e.target.dataset.id);
     }

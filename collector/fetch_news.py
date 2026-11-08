@@ -38,11 +38,13 @@ from translator import Translator  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-OG_CACHE_FILE = DATA / "og_cache.json"
+META_CACHE_FILE = DATA / "meta_cache.json"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
 WINDOW = timedelta(hours=24)
 MAX_STORIES = 600          # скільки історій на мову зберігати
-OG_LOOKUPS = 150           # скільки сторінок максимум відкрити, щоб знайти фото
+META_LOOKUPS = 900         # скільки нових сторінок статей максимум відкрити за запуск (опис і фото)
+MAX_IMAGES = 8             # скільки фото в галереї історії
+TEXT_LIMIT = 700           # скільки символів опису брати від кожного джерела
 
 COUNTRY_RE = {lang: {c: re.compile(p, re.I) for c, p in d.items()} for lang, d in COUNTRIES.items()}
 EURASIA_RE = {lang: re.compile(p, re.I) for lang, p in EURASIA.items()}
@@ -175,6 +177,7 @@ def parse_feed(raw: bytes, source: str, hints: list[str]) -> list[dict]:
             title=t,
             url=link.strip(),
             summary=shorten(summary),
+            full=shorten(summary, TEXT_LIMIT),
             time=published,
             image=better_image(max(images)[1]) if images else "",
         )
@@ -184,10 +187,14 @@ def parse_feed(raw: bytes, source: str, hints: list[str]) -> list[dict]:
 
 def fetch_one(lang: str, feed: tuple) -> tuple[str, list[dict], str | None]:
     source, url, hints = feed
-    try:
-        return lang, parse_feed(http_get(url), source, hints), None
-    except Exception as e:  # стрічка може тимчасово не працювати — не страшно
-        return lang, [], f"{source} ({url}): {e}"
+    err = None
+    for attempt in range(3):  # повторюємо, якщо мережа «моргнула»
+        try:
+            return lang, parse_feed(http_get(url, timeout=25), source, hints), None
+        except Exception as e:  # стрічка може тимчасово не працювати — не страшно
+            err = e
+            time.sleep(2 * (attempt + 1))
+    return lang, [], f"{source} ({url}): {err}"
 
 
 # ---------------------------------------------------------------- групування
@@ -293,6 +300,13 @@ def lead_key(i: dict):
 def build_base(group: list[dict], now: datetime) -> dict:
     lead = min(group, key=lead_key)
     image = lead["image"] or next((i["image"] for i in group if i["image"]), "")
+    gallery, seen_img = [], set()
+    for i in [lead] + sorted(group, key=lead_key):
+        for u in i.get("images", []):
+            k = image_key(u)
+            if k not in seen_img and len(gallery) < MAX_IMAGES:
+                seen_img.add(k)
+                gallery.append({"u": u, "s": i["source"]})
     latest = max(i["time"] for i in group)
     seen, items = set(), []
     for i in sorted(group, key=lambda i: i["time"], reverse=True):
@@ -313,6 +327,7 @@ def build_base(group: list[dict], now: datetime) -> dict:
         "score": round(n_src * 3 + n_lang * 2 + len(items) * 0.5 + max(0, 24 - hours) / 4, 2),
         "_lead": lead,
         "_items": items,
+        "_gallery": gallery,
     }
 
 
@@ -320,20 +335,25 @@ def ui_lang(code: str) -> str:
     return {"zh-TW": "zh-Hant"}.get(code, code)
 
 
-def render_language(bases: list[dict], L: str, tr: Translator) -> list[dict]:
-    """Готує історії для мови L: оригінал, якщо видання пише цією мовою, інакше — переклад."""
+def render_language(bases: list[dict], L: str, tr: Translator) -> tuple[list[dict], list[dict]]:
+    """Готує історії для мови L: оригінал, якщо видання пише цією мовою, інакше — переклад.
+    Повертає (легкий список для стрічки, повні дані для сторінок історій)."""
     plan = []
     need: dict[str, list[str]] = {}
     for b in bases:
         native = [i for i in b["_items"] if i["lang"] == L]
         lead = min(native, key=lead_key) if native else b["_lead"]
         srcs = b["_items"][:MAX_SOURCES]
-        plan.append((b, lead, bool(native), srcs))
+        # головний абзац сторінки — найдовший опис (спершу серед видань цією мовою)
+        longest = max(native or b["_items"], key=lambda i: len(i["text"]))
+        plan.append((b, lead, bool(native), srcs, longest))
         if not native:
             need.setdefault(lead["lang"], []).extend([lead["title"], lead["summary"]])
+        if longest["lang"] != L:
+            need.setdefault(longest["lang"], []).append(longest["text"])
         for i in srcs:
             if i["lang"] != L:
-                need.setdefault(i["lang"], []).append(i["title"])
+                need.setdefault(i["lang"], []).extend([i["title"], i["text"]])
     done: dict[str, dict[str, str | None]] = {sl: tr.translate(texts, sl, L) for sl, texts in need.items()}
 
     def t(i_lang: str, text: str) -> str | None:
@@ -341,58 +361,99 @@ def render_language(bases: list[dict], L: str, tr: Translator) -> list[dict]:
             return ""
         return text if i_lang == L else done.get(i_lang, {}).get(text)
 
-    out = []
-    for b, lead, native, srcs in plan:
+    stories, details = [], []
+    for b, lead, native, srcs, longest in plan:
         story = {k: v for k, v in b.items() if not k.startswith("_")}
+        long_text = t(longest["lang"], longest["text"]) or (lead["text"] if lead["lang"] == L else "") or story.get("summary", "")
         if native:
             story.update(title=lead["title"], summary=lead["summary"])
         else:
             title, summary = t(lead["lang"], lead["title"]), t(lead["lang"], lead["summary"])
-            ok = bool(title) and (summary is not None)
+            ok = bool(title) and summary is not None
             story.update(
                 title=title if ok else lead["title"],
                 summary=summary if ok else lead["summary"],
                 orig={"lang": ui_lang(lead["lang"]), "title": lead["title"], "summary": lead["summary"]},
                 tr=ok,  # False — переклад не вдався, показано оригінал
             )
-        story["sources"] = [{
-            "name": i["source"],
-            "title": t(i["lang"], i["title"]) or i["title"],
-            "url": i["url"],
-            "time": i["time"].isoformat(),
-            "lang": ui_lang(i["lang"]),
-        } for i in srcs]
-        out.append(story)
-    return out
+            if not ok:
+                long_text = longest["text"]
+            story["orig"]["text"] = longest["text"]
+        story["names"] = list(dict.fromkeys(i["source"] for i in srcs))
+        stories.append(story)
+
+        sources = []
+        for i in srcs:
+            src = {"name": i["source"], "url": i["url"], "time": i["time"].isoformat(), "lang": ui_lang(i["lang"]),
+                   "title": i["title"], "text": i["text"]}
+            if i["lang"] != L:
+                tt, tx = t(i["lang"], i["title"]), t(i["lang"], i["text"])
+                if tt:
+                    src.update(title=tt, oTitle=i["title"])
+                if tx:
+                    src.update(text=tx, oText=i["text"])
+            sources.append(src)
+        detail = {k: v for k, v in story.items() if k != "names"}
+        detail.update(text=long_text, images=b["_gallery"], sources=sources)
+        details.append(detail)
+    return stories, details
 
 
-# ---------------------------------------------------------------- фото зі сторінки
+# ---------------------------------------------------------------- опис і фото зі сторінки статті
+# Беремо лише те, що видання самі публікують для поширення (og:image, og:description),
+# а не весь текст статті — він захищений авторським правом.
 
-OG_RE = re.compile(r"<meta[^>]+(?:property|name)=[\"'](?:og:image|twitter:image)[\"'][^>]+content=[\"']([^\"']+)", re.I)
-OG_RE2 = re.compile(r"<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+(?:property|name)=[\"'](?:og:image|twitter:image)", re.I)
+def meta_tag(page: str, names: tuple[str, ...]) -> str:
+    for n in names:
+        n = re.escape(n)
+        for rx in (
+            rf"<meta[^>]+(?:property|name)=[\"']{n}[\"'][^>]*?content=\"([^\"]*)\"",
+            rf"<meta[^>]+(?:property|name)=[\"']{n}[\"'][^>]*?content='([^']*)'",
+            rf"<meta[^>]+content=\"([^\"]*)\"[^>]*?(?:property|name)=[\"']{n}[\"']",
+            rf"<meta[^>]+content='([^']*)'[^>]*?(?:property|name)=[\"']{n}[\"']",
+        ):
+            m = re.search(rx, page, re.I)
+            if m and m.group(1).strip():
+                return html.unescape(m.group(1)).strip()
+    return ""
 
 
-def og_image(url: str) -> str:
+def page_meta(url: str) -> dict:
     try:
-        page = http_get(url, timeout=10, limit=400_000).decode("utf-8", "ignore")
+        page = http_get(url, timeout=10, limit=500_000).decode("utf-8", "ignore")
     except Exception:
-        return ""
-    m = OG_RE.search(page) or OG_RE2.search(page)
-    return html.unescape(m.group(1)).strip() if m else ""
+        return {"i": "", "d": "", "err": 1}
+    return {
+        "i": meta_tag(page, ("og:image", "twitter:image", "twitter:image:src")),
+        "d": clean(meta_tag(page, ("og:description", "description", "twitter:description"))),
+    }
 
 
-def fill_images(stories: list[dict], cache: dict) -> None:
-    todo = [s for s in stories if not s["image"]][:OG_LOOKUPS]
-    need = [s["_items"][0]["url"] for s in todo if s["_items"][0]["url"] not in cache]
+def enrich(items: list[dict], cache: dict) -> None:
+    """Для кожної новини: фото й опис зі сторінки статті (з кешем)."""
+    need = [i["url"] for i in items if i["url"] not in cache or cache[i["url"]].get("err")][:META_LOOKUPS]
     if need:
-        with cf.ThreadPoolExecutor(12) as ex:
-            for url, img in zip(need, ex.map(og_image, need)):
-                cache[url] = img
-    for s in todo:
-        for i in s["_items"]:
-            if cache.get(i["url"]):
-                s["image"] = better_image(cache[i["url"]])
-                break
+        with cf.ThreadPoolExecutor(16) as ex:
+            for url, meta in zip(need, ex.map(page_meta, need)):
+                cache[url] = meta
+    for i in items:
+        meta = cache.get(i["url"], {})
+        og_img = better_image(meta.get("i") or "")
+        i["images"] = [u for u in dict.fromkeys([i["image"], og_img]) if u]
+        if not i["image"] and og_img:
+            i["image"] = og_img
+        desc = meta.get("d") or ""
+        # беремо довший з двох описів (RSS чи сторінка), якщо він не повторює заголовок
+        text = desc if len(desc) > len(i["full"]) and desc.lower() != i["title"].lower() else i["full"]
+        i["text"] = shorten(text, TEXT_LIMIT)
+        if not i["summary"] and i["text"]:
+            i["summary"] = shorten(i["text"])
+
+
+def image_key(url: str) -> str:
+    # одне й те саме фото в різних розмірах має однакову назву файлу
+    name = urllib.parse.urlparse(url).path.rsplit("/", 1)[-1].lower()
+    return re.sub(r"^\d+x\d+[-_]|[-_]\d+x\d+(?=\.)", "", name) or url
 
 
 # ---------------------------------------------------------------- головне
@@ -402,9 +463,9 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     DATA.mkdir(exist_ok=True)
     try:
-        og_cache = json.loads(OG_CACHE_FILE.read_text("utf-8"))
+        meta_cache = json.loads(META_CACHE_FILE.read_text("utf-8"))
     except (OSError, ValueError):
-        og_cache = {}
+        meta_cache = {}
     tr = Translator(DATA / "translations.json")
 
     # 1. завантажуємо всі стрічки всіх мов
@@ -436,17 +497,31 @@ def main() -> int:
         for i in group:
             i["en_title"] = res.get(i["title"]) or i["title"]
 
-    # 3. групуємо, рахуємо категорії й важливість
+    # 3. опис і фото зі сторінок статей
+    enrich(items, meta_cache)
+    log(f"Сторінок статей у кеші: {len(meta_cache)}")
+
+    # 4. групуємо, рахуємо категорії й важливість
     bases = [build_base(g, now) for g in cluster(items)]
     bases.sort(key=lambda s: s["score"], reverse=True)
     bases = bases[:MAX_STORIES]
-    fill_images(bases, og_cache)
 
-    # 4. для кожної мови сайту — оригінал або переклад
+    # 5. для кожної мови сайту — оригінал або переклад
     names = sorted({n for feeds in FEEDS.values() for n, _, _ in feeds})
     for L in SITE_LANGS:
-        stories = render_language(bases, L, tr)
+        stories, details = render_language(bases, L, tr)
         out = {"lang": L, "generated": now.isoformat(), "sources": names, "stories": stories}
+        # окремий файл на кожну історію: data/<мова>/<id>.json (відкривається на сторінці новини)
+        ddir = DATA / L
+        ddir.mkdir(exist_ok=True)
+        keep = set()
+        for d in details:
+            f = ddir / f"{d['id']}.json"
+            keep.add(f.name)
+            f.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), "utf-8")
+        for old in ddir.glob("*.json"):
+            if old.name not in keep:
+                old.unlink()
         tmp = DATA / f"{L}.json.tmp"
         tmp.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), "utf-8")
         tmp.replace(DATA / f"{L}.json")
@@ -458,9 +533,12 @@ def main() -> int:
     log(f"По категоріях: {counts}")
     log(f"Запитів до перекладача: {tr.requests}, невдалих: {tr.failed}")
     tr.save()
-    if len(og_cache) > 3000:
-        og_cache = dict(list(og_cache.items())[-3000:])
-    OG_CACHE_FILE.write_text(json.dumps(og_cache, ensure_ascii=False), "utf-8")
+    urls = {i["url"] for i in items}
+    meta_cache = {u: m for u, m in meta_cache.items() if u in urls}  # лише для поточних новин
+    META_CACHE_FILE.write_text(json.dumps(meta_cache, ensure_ascii=False, separators=(",", ":")), "utf-8")
+    old_og = DATA / "og_cache.json"
+    if old_og.exists():
+        old_og.unlink()
     for e in errors:
         log("Не вдалося завантажити:", e)
     log(f"Готово за {time.time() - started:.1f} с")
