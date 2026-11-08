@@ -1,0 +1,74 @@
+# Автооновлення «Коло Новин» на GitHub Pages:
+# кожні 20 хвилин збирає новини, перекладає і публікує сайт.
+name: Оновлення новин
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Відновити кеш перекладів і фото
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/translations.json
+            data/og_cache.json
+          key: kolo-cache-${{ github.run_id }}
+          restore-keys: kolo-cache-
+      - name: Зібрати новини
+        run: python3 collector/fetch_news.py
+      - name: Підготувати сайт
+        run: |
+          mkdir -p _site/data
+          cp -r index.html manifest.webmanifest assets _site/
+          cp data/uk.json data/en.json data/zh.json data/ru.json _site/data/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # GitHub вимикає розклад, якщо в репозиторії 60 днів не було змін.
+  # Раз на 50 днів робимо порожній коміт, щоб автооновлення не зупинилось.
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $((50 * 86400)) ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "Підтримка автооновлення"
+            git push
+          fi
