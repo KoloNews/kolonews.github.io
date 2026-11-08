@@ -1,5 +1,6 @@
-# Автооновлення «Коло Новин» на GitHub Pages:
-# кожні 20 хвилин (о :07, :27, :47) збирає новини, перекладає і публікує сайт.
+# Автооновлення «Коло Новин» на GitHub Pages: збирає новини, перекладає і публікує сайт.
+# Розклад (cron) у цьому репозиторії GitHub не запускав жодного разу, тому основний механізм —
+# ланцюжок: кожне оновлення в кінці чекає ~15 хв і запускає наступне. Розклад лишається запасним.
 name: Оновлення новин
 
 on:
@@ -14,15 +15,15 @@ permissions:
   contents: write
   pages: write
   id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  actions: write   # щоб запускати наступне оновлення
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    concurrency:
+      group: build
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,7 +44,7 @@ jobs:
       - name: Зібрати новини
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          AI_PER_RUN: "20"
+          AI_PER_RUN: "30"
         run: python3 collector/fetch_news.py
       - name: Підготувати сайт
         run: |
@@ -59,6 +60,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -66,10 +70,31 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
+  # Ланцюжок: через ~15 хв запускаємо наступне оновлення.
+  # Продовжує лише НАЙНОВІШИЙ запуск — так ручні запуски не створюють подвійних ланцюжків.
+  next:
+    needs: deploy
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Зачекати й запустити наступне оновлення
+        run: |
+          sleep 900
+          newest=$(gh run list --workflow update.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ "$newest" = "${{ github.run_id }}" ]; then
+            gh workflow run update.yml --ref main && echo "Наступне оновлення запущено"
+          else
+            echo "Є новіший запуск ($newest) — він продовжить ланцюжок"
+          fi
+
   # GitHub вимикає розклад, якщо в репозиторії 60 днів не було змін.
   # Раз на 50 днів робимо порожній коміт, щоб автооновлення не зупинилось.
   keepalive:
-    if: github.event_name == 'schedule'
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

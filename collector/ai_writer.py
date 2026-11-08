@@ -23,14 +23,20 @@ import re
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest")
+# Черга моделей: денний ліміт у Google рахується окремо для кожної моделі.
+# Коли в моделі закінчився денний ліміт (або вона недоступна) — переходимо до наступної.
+MODELS = [m.strip() for m in os.environ.get(
+    "GEMINI_MODELS", "gemini-flash-lite-latest,gemini-3.1-flash-lite,gemini-flash-latest,gemini-3.5-flash").split(",") if m.strip()]
+MODEL = MODELS[0]
+_dead: set[str] = set()      # моделі, недоступні сьогодні (зберігаються в кеші, щоб не смикати їх щоразу)
+_state: dict = {}
 PER_RUN = int(os.environ.get("AI_PER_RUN", "12"))        # текстів за один запуск
 CLS_PER_RUN = int(os.environ.get("AI_CLS_PER_RUN", "25"))  # запитів на розкладання за запуск (по 40 історій)
-DAILY_LIMIT = int(os.environ.get("AI_DAILY_LIMIT", "900"))
+DAILY_LIMIT = int(os.environ.get("AI_DAILY_LIMIT", "2500"))  # наш запобіжник на всі моделі разом
 PAUSE = 4.5                                               # секунд між запитами (≤ 15 за хвилину)
 TOPICS = ["tech", "economy", "crime", "sport", "science", "games", "crypto"]
 REGIONS = ["eurasia", "us", "cn", "ua"]
@@ -115,6 +121,7 @@ class QuotaExceeded(Exception):
 
 
 def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000, parts: list | None = None) -> dict | None:
+    """Запит до Gemini. Перебирає моделі з черги MODELS, поки якась не відповість."""
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": (parts or []) + [{"text": text}]}],
@@ -125,62 +132,67 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
             "maxOutputTokens": max_tokens,
         },
     }
-    req = urllib.request.Request(
-        ENDPOINT.format(model=MODEL),
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json", "x-goog-api-key": key},
-    )
-    data = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=90) as r:
-                data = json.loads(r.read().decode("utf-8"))
-            break
-        except urllib.error.HTTPError as e:
-            if e.code == 429:
-                # тимчасове обмеження «запитів за хвилину» — чекаємо, скільки скаже Google (до 60 с), і пробуємо ще;
-                # денний ліміт (або дві невдачі поспіль) — зупиняємось до наступного запуску
-                wait = 0.0
+    payload = json.dumps(body).encode()
+    for model in MODELS:
+        if model in _dead:
+            continue
+        req = urllib.request.Request(
+            ENDPOINT.format(model=model), data=payload,
+            headers={"Content-Type": "application/json", "x-goog-api-key": key},
+        )
+        data, switch = None, False
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(req, timeout=90) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as e:
+                raw = e.read().decode("utf-8", "ignore")
                 try:
-                    err = json.loads(e.read().decode("utf-8")).get("error", {})
+                    err = json.loads(raw).get("error", {})
+                except ValueError:
+                    err = {}
+                if e.code == 429:
                     ids = [v.get("quotaId") or "" for d in err.get("details", []) for v in d.get("violations", [])]
-                    daily = any("PerDay" in q for q in ids)
+                    wait = 0.0
                     for d in err.get("details", []):
                         if d.get("retryDelay"):
                             wait = float(str(d["retryDelay"]).rstrip("s") or 0)
-                    print(f"ШІ: Google обмежив запити (429): {', '.join(ids) or err.get('message', '')[:120]}; повтор через {wait or 20:.0f} с", flush=True)
-                except Exception:
-                    daily = False
-                if not daily and attempt < 2 and wait <= 60:
-                    time.sleep(max(wait, 20) + 2)
+                    if any("PerDay" in q for q in ids) or wait > 60 or attempt == 2:
+                        print(f"ШІ: у моделі {model} закінчився ліміт ({', '.join(ids) or 'без деталей'}) — переходжу до наступної", flush=True)
+                        switch = True
+                        break
+                    time.sleep(max(wait, 20) + 2)  # тимчасове обмеження «за хвилину»
                     continue
-                raise QuotaExceeded() from e
-            if e.code in (500, 502, 503, 504) and attempt < 2:
-                time.sleep(8 * (attempt + 1))  # модель тимчасово перевантажена — чекаємо й пробуємо ще
-                continue
-            detail = e.read()[:200].decode("utf-8", "ignore")
-            print(f"ШІ: помилка {e.code}: {detail}", flush=True)
+                if e.code in (400, 403, 404):  # модель недоступна для цього ключа
+                    print(f"ШІ: модель {model} недоступна ({e.code}) — переходжу до наступної", flush=True)
+                    switch = True
+                    break
+                if e.code in (500, 502, 503, 504) and attempt < 2:
+                    time.sleep(8 * (attempt + 1))  # модель тимчасово перевантажена
+                    continue
+                print(f"ШІ: помилка {e.code} ({model}): {raw[:200]}", flush=True)
+                return None
+            except Exception as e:
+                if attempt < 2:
+                    time.sleep(5)
+                    continue
+                print(f"ШІ: помилка з'єднання ({model}): {e}", flush=True)
+                return None
+        if switch:
+            _dead.add(model)
+            if _state is not None:
+                _state.setdefault("dead", [])
+                if model not in _state["dead"]:
+                    _state["dead"].append(model)
+            continue
+        if data is None:
             return None
-        except Exception as e:
-            print(f"ШІ: помилка з'єднання: {e}", flush=True)
+        try:
+            return json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+        except (KeyError, IndexError, ValueError):
             return None
-    if data is None:
-        return None
-    try:
-        return json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
-    except (KeyError, IndexError, ValueError):
-        return None
-
-
-FOREIGN = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]")  # ієрогліфи, кана, хангиль
-CYR = re.compile(r"[а-яіїєґ]", re.I)
-
-
-def is_ukrainian(res: dict) -> bool:
-    """Текст ШІ придатний: без ієрогліфів і переважно кирилицею."""
-    blob = " ".join([res["title"], res["lead"], *res["body"], *res["points"]])
-    letters = [c for c in blob if c.isalpha()]
-    return not FOREIGN.search(blob) and len(CYR.findall(blob)) >= 0.6 * max(1, len(letters))
+    raise QuotaExceeded()
 
 
 def generate(material: str, key: str) -> dict | None:
@@ -220,10 +232,14 @@ def material_for(items: list[dict], lang_names: dict[str, str]) -> str:
 
 
 def _budget(cache: dict) -> dict:
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    global _state
+    # день рахуємо за тихоокеанським часом (UTC−8) — тоді Google скидає безкоштовні ліміти
+    today = (datetime.now(timezone.utc) - timedelta(hours=8)).strftime("%Y-%m-%d")
     state = cache.setdefault("_state", {})
     if state.get("day") != today:
-        state.update(day=today, count=0)
+        state.update(day=today, count=0, dead=[])
+    _dead.update(state.get("dead", []))
+    _state = state
     return state
 
 
