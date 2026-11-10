@@ -767,9 +767,12 @@ def main() -> int:
     for b in bases:
         c = cls.get(b["id"])
         if c is not None:
-            b["topics"] = [t for t in TOPICS if t in c["t"]]
+            b["topics"] = [t for t in c["t"] if t in TOPICS]  # порядок ШІ: перший — головний розділ
             b["cats"] = ["world"] + [r for r in REGION_IDS if r in c["r"]]
     verify_sections(bases, ai_cache)
+    # кожна новина — лише в ОДНОМУ розділі (головному); «Популярне» показує всі новини
+    for b in bases:
+        b["topics"] = b["topics"][:1]
     shown = select_shown(bases)
     log(f"Історій усього: {len(bases)}, на сайті (топ-{PER_SECTION} у кожному розділі): {len(shown)}")
 

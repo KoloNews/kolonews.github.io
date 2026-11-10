@@ -50,6 +50,8 @@ jobs:
         run: |
           mkdir -p _site/data
           cp -r index.html manifest.webmanifest assets _site/
+          # позначка версії: браузер одразу бере нові файли, а не старі з кешу
+          sed -i "s#assets/app.js\"#assets/app.js?v=${GITHUB_SHA::8}\"#; s#assets/style.css\"#assets/style.css?v=${GITHUB_SHA::8}\"#" _site/index.html
           cp data/uk.json data/en.json data/zh.json data/ru.json _site/data/
           cp -r data/uk data/en data/zh data/ru _site/data/
           touch _site/.nojekyll
