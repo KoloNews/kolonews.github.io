@@ -130,7 +130,7 @@
 
   const $ = (id) => document.getElementById(id);
   const el = {
-    grid: $('grid'), title: $('sec-title'), sub: $('sec-sub'), head: $('section-head'), updated: $('updated'),
+    grid: $('grid'), title: $('sec-title'), head: $('section-head'), updated: $('updated'),
     sideTopics: $('side-topics'), sideRegions: $('side-regions'), chipsT: $('chips-t'), chipsR: $('chips-r'),
     labelT: $('label-t'), labelR: $('label-r'),
     langSeg: $('lang-seg'), langDrop: $('lang-drop'), langBtn: $('lang-btn'), langMenu: $('lang-menu'),
@@ -363,7 +363,6 @@
   function renderHead(animate) {
     const L = t();
     el.title.textContent = sectionTitle();
-    el.sub.textContent = L.sub(countText(state.list.length, L.stories));
     if (animate) {
       el.head.classList.remove('swap');
       void el.head.offsetWidth;
