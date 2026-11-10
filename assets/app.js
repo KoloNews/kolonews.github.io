@@ -178,23 +178,50 @@
   const langName = (c) => { try { return new Intl.DisplayNames([state.lang], { type: 'language' }).of(c); } catch (e) { return SHORT[c] || c; } };
   const TR_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c.7 3.2 2.8 5.8 6 7.5M11 5c-.8 3.6-3.4 6.6-7 8.5M13 21l4.5-10L22 21M14.5 17.5h6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const AI_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18.5 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="currentColor"/></svg>';
-  const matches = (s, topic, region) => s.cats.includes(region) && (topic === 'popular' || (s.topics || []).includes(topic)) && fresh(s);
+  // «Популярне» — список від збирача (s.pop: найпопулярніші + свіжа новина з кожних 3 годин); у старих даних поля немає
+  const inPopular = (s, region) => (Array.isArray(s.pop) ? s.pop.includes(region) : true);
+  const matches = (s, topic, region) => s.cats.includes(region) && (topic === 'popular' ? inPopular(s, region) : (s.topics || []).includes(topic)) && fresh(s);
   const sectionList = (topic, region) => (state.data ? state.data.stories.filter((s) => matches(s, topic, region)).slice(0, PER_SECTION) : []);
   // головна (перша) новина різна в різних розділах: обираємо по черзі розділів —
   // якщо найрейтинговіша вже головна в попередньому розділі, головною стає наступна
+  // «Популярне»: головна — найпопулярніша; якщо кілька майже однаково популярних (≥85% від першої),
+  // вони змінюються на головній по колу кожні 10 хвилин (рішення користувача)
+  const HERO_ROTATE_MS = 10 * 60 * 1000;
+  const HERO_NEAR = 0.85;
+  const heroSlot = () => Math.floor(Date.now() / HERO_ROTATE_MS);
   const heroCache = new Map();
   const heroesFor = (region) => {
-    if (heroCache.has(region)) return heroCache.get(region);
+    const slot = heroSlot();
+    const key = `${region}|${slot}`;
+    if (heroCache.has(key)) return heroCache.get(key);
     const used = new Set();
     const map = {};
     TOPIC_IDS.forEach((t) => {
       const list = sectionList(t, regionFor(t, region));
-      const h = list.find((x) => !used.has(x.id)) || list[0];
+      let h;
+      if (t === 'popular' && list.length) {
+        const top = Math.max(...list.map((x) => x.score || 0));
+        const group = list.filter((x) => (x.score || 0) >= top * HERO_NEAR).sort((a, b) => (b.score || 0) - (a.score || 0));
+        h = group[slot % group.length];
+      } else {
+        h = list.find((x) => !used.has(x.id)) || list[0];
+      }
       if (h) { map[t] = h.id; used.add(h.id); }
     });
-    heroCache.set(region, map);
+    heroCache.set(key, map);
     return map;
   };
+  // коли настає новий 10-хвилинний проміжок — оновлюємо список «Популярного», якщо головна змінилась
+  let lastHeroSlot = heroSlot();
+  function rotateHero() {
+    const slot = heroSlot();
+    if (slot === lastHeroSlot) return;
+    lastHeroSlot = slot;
+    if (!state.data || state.openId || state.topic !== 'popular') return;
+    const first = state.list && state.list[0];
+    const next = heroesFor(state.region).popular;
+    if (first && next && first.id !== next) { const y = window.scrollY; renderList(false); window.scrollTo(0, y); }
+  }
   const orderedSection = (topic, region) => {
     // «Головне» (найрейтинговіша, різна в розділах) — першою, решта — від найновіших за часом першої появи
     const hid = heroesFor(region)[topic];
@@ -875,7 +902,7 @@
 
   setInterval(refreshTimes, 60 * 1000);
   renderUpdated();
-  setInterval(renderUpdated, 1000);
+  setInterval(() => { renderUpdated(); rotateHero(); }, 1000);
   setInterval(() => load(true), AUTO_REFRESH_MS);
 
   // ---------------------------------------------------------------- старт

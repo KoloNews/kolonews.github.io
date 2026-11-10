@@ -304,8 +304,9 @@ def categorize(group: list[dict]) -> list[str]:
     # країна має бути в заголовку або згадана в тексті щонайменше двічі
     found = [c for c in ("us", "cn", "ua", "ru") if c in title_hit or text_count.get(c, 0) >= 2]
     hints = {h for i in group for h in i["hints"]}
-    if "us" in hints and "us" not in found:
-        found.append("us")
+    for c in ("us", "cn"):  # стрічка про конкретну країну (підказка у feeds.py)
+        if c in hints and c not in found:
+            found.append(c)
     cats = ["world"]
     if eur_title or eur_count >= 2 or ("eurasia" in hints and not found):
         cats.append("eurasia")
@@ -535,20 +536,57 @@ def inherit_ids(bases: list[dict], ai_cache: dict) -> None:
     ai_cache["urlid"] = {i["url"]: b["id"] for b in bases for i in b["_items"]}
 
 
+FRESH_WINDOW_H = 3  # «Популярне»: якщо за 3 години туди нічого не потрапило — додаємо найпопулярнішу з цих годин
+
+
+def popular_pick(pool: list[dict], limit: int, now: datetime) -> list[dict]:
+    """«Популярне» (рішення користувача): найпопулярніші limit новин. Якщо з якогось 3-годинного проміжку
+    (за часом першої появи) серед них немає жодної — додаємо найпопулярнішу з цього проміжку замість
+    найменш популярної, що не єдина у своєму проміжку. Так стрічка освіжається, а популярне не витісняється.
+    pool — уже за рейтингом."""
+    def win(b: dict) -> int:
+        return int((now - datetime.fromisoformat(b.get("first") or b["time"])).total_seconds() / 3600 // FRESH_WINDOW_H)
+
+    picked = pool[:limit]
+    for k in range(int(24 / FRESH_WINDOW_H)):  # від найсвіжішого проміжку
+        if any(win(b) == k for b in picked):
+            continue
+        cand = next((b for b in pool if win(b) == k and b not in picked), None)
+        if cand is None:
+            continue  # у ці години новин не було
+        counts: dict[int, int] = {}
+        for b in picked:
+            counts[win(b)] = counts.get(win(b), 0) + 1
+        victim = next((b for b in reversed(picked) if counts[win(b)] > 1), None)
+        if victim is None:
+            break
+        picked.remove(victim)
+        picked.append(cand)
+    picked.sort(key=lambda b: -b["score"])
+    return picked
+
+
 def select_shown(bases: list[dict], limit: int = PER_SECTION, ready: set[str] | None = None,
                  fallback: bool = True) -> list[dict]:
-    """Топ за рейтингом у кожному «розділ × регіон».
+    """Топ за рейтингом у кожному «розділ × регіон» («Популярне» — див. popular_pick).
     ready — номери історій, для яких уже є текст ШІ: на сайт ідуть лише вони;
-    історії без тексту додаються, тільки якщо fallback (ШІ сьогодні недоступний) — щоб сайт не спорожнів."""
+    історії без тексту додаються, тільки якщо fallback (ШІ сьогодні недоступний) — щоб сайт не спорожнів.
+    Кожній історії записує b["pop"] — регіони, в «Популярному» яких вона стоїть (сайт показує саме їх)."""
+    now = datetime.now(timezone.utc)
     keep: set[str] = set()
+    for b in bases:
+        b["pop"] = []
     for t in TOPIC_IDS:
         for r in (["world"] if t in WORLD_ONLY else REGION_IDS):
             pool = [b for b in bases if r in b["cats"] and (t == "popular" or t in b["topics"])]  # уже за рейтингом
             if ready is not None:
                 with_text = [b for b in pool if b["id"] in ready]
                 pool = with_text + ([b for b in pool if b["id"] not in ready] if fallback else [])
-            for b in pool[:limit]:
+            chosen = popular_pick(pool, limit, now) if t == "popular" else pool[:limit]
+            for b in chosen:
                 keep.add(b["id"])
+                if t == "popular":
+                    b["pop"].append(r)
     return [b for b in bases if b["id"] in keep]
 
 
@@ -828,6 +866,10 @@ def main() -> int:
     # кожна новина — лише в ОДНОМУ розділі (головному); «Популярне» показує всі новини
     for b in bases:
         b["topics"] = b["topics"][:1]
+    # дрібний кримінал (лише одне видання — зазвичай місцеві випадки) на сайт не йде взагалі (рішення користувача)
+    all_bases = bases  # повний список — для очищення кешів (щоб не розкладати прибрані історії щоразу заново)
+    bases = [b for b in bases if not (b["topics"] == ["crime"] and b["sourceCount"] < 2)]
+    log(f"Прибрано дрібного кримінального (1 джерело): {len(all_bases) - len(bases)}")
     # кандидати: топ-20 у кожному розділі — ШІ пише для них тексти, а на сайт ідуть топ-15 з готовим текстом
     shown = select_shown(bases, limit=PER_SECTION + 5)
     log(f"Історій усього: {len(bases)}, на сайті (топ-{PER_SECTION} у кожному розділі): {len(shown)}")
@@ -902,7 +944,7 @@ def main() -> int:
         n_ai = sum(1 for s in stories if s.get("ai"))
         log(f"[{L}] історій: {len(stories)}, з текстом ШІ: {n_ai}")
 
-    all_ids = {b['id'] for b in bases}  # історії ще в межах 24 годин
+    all_ids = {b['id'] for b in all_bases}  # історії ще в межах 24 годин
     bases = shown
     counts = {t: sum(1 for s in shown if t == "popular" or t in s["topics"]) for t in TOPIC_IDS}
     log(f"На сайті за розділами: {counts}")

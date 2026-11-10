@@ -54,6 +54,9 @@ FEEDS = {
         ("ScienceDaily", "https://www.sciencedaily.com/rss/top/science.xml", ["t:science"]),
         ("The Verge", "https://www.theverge.com/rss/index.xml", ["t:tech"]),
         ("TechCrunch", "https://techcrunch.com/feed/", ["t:tech"]),
+        # технології Китаю (етап 1, 2026-11-10; етап 2 після перевірки ліміту — IT之家, розділи SCMP)
+        ("TechNode", "https://technode.com/feed/", ["t:tech", "cn"]),
+        ("Pandaily", "https://pandaily.com/feed/", ["t:tech", "cn"]),
         ("PC Gamer", "https://www.pcgamer.com/rss/", ["t:games"]),
         ("Eurogamer", "https://www.eurogamer.net/feed", ["t:games"]),
         ("IGN", "https://feeds.feedburner.com/ign/all", ["t:games"]),
@@ -87,5 +90,6 @@ FEEDS = {
         ("纽约时报中文网", "https://cn.nytimes.com/rss/", []),
         ("美国之音", "https://www.voachinese.com/api/", []),
         ("自由亚洲电台", "https://www.rfa.org/mandarin/RSS", []),
+        ("爱范儿", "https://www.ifanr.com/feed", ["t:tech"]),
     ],
 }
