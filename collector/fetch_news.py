@@ -83,17 +83,26 @@ TAG_RE = re.compile(r"<[^>]+>")
 WS_RE = re.compile(r"\s+")
 
 
+# хвости RSS на кшталт «Читати далі» / «Read more» — у тексті новини вони зайві
+READ_MORE_RE = re.compile(
+    r"\s*(?:\[\s*(?:…|\.\.\.)\s*\]|\[\s*read more\s*\])\s*$"
+    r"|\s*(?:read more|continue reading|read the full (?:story|article)|keep reading|more\.\.\.|"
+    r"читати далі|читати повністю|детальніше|подробнее|читать далее|читать полностью|阅读全文|阅读更多)"
+    r"\s*(?:\.\.\.|…|»|›|→|>)?\s*$", re.I)
+
+
 def clean(text: str | None) -> str:
     if not text:
         return ""
     text = html.unescape(text)
     text = TAG_RE.sub(" ", text)
     text = html.unescape(text)
-    text = text.replace("Continue reading...", "").replace("Читать далее", "")
+    text = READ_MORE_RE.sub("", text)
     return WS_RE.sub(" ", text).strip()
 
 
 def shorten(text: str, limit: int = 300) -> str:
+    text = READ_MORE_RE.sub("", text or "").strip()
     if len(text) <= limit:
         return text
     cut = text[:limit]
@@ -423,7 +432,9 @@ def merge_events(groups: list[list[dict]], ai_cache: dict) -> list[list[dict]]:
         v = w(shared) / max(1e-9, min(w(sig[a]), w(sig[b])))
         if v >= 0.2:
             cands.append((v, a, b))
-    cands.sort(reverse=True)
+    # спершу пари великих історій — саме вони на сайті, і їхні дублі найпомітніші й найдорожчі
+    weight = [len({i["source"] for i in g}) for g in groups]
+    cands.sort(key=lambda c: (-(weight[c[1]] + weight[c[2]]), -c[0]))
 
     def gkey(g):  # стабільний ключ групи — найперша публікація
         return min(g, key=lambda i: (i["time"], i["url"]))["url"]
@@ -500,6 +511,27 @@ def verify_sections(bases: list[dict], ai_cache: dict) -> None:
     known = ai_cache.get("ver", {})
     for b in bases:
         b["topics"] = [t for t in b["topics"] if known.get(f"{b['id']}:{t}") is not False]
+
+
+def inherit_ids(bases: list[dict], ai_cache: dict) -> None:
+    """Стабільні номери: історія успадковує номер попередньої, з якою має спільні публікації.
+    Так готовий текст ШІ, розділи й перевірки не губляться і ліміт ШІ не витрачається вдруге,
+    коли до історії додаються публікації або дві історії зливаються."""
+    prev: dict = ai_cache.get("urlid", {})
+    taken: set[str] = set()
+    for b in sorted(bases, key=lambda b: -len(b["_items"])):  # спершу більші — вони «головніші»
+        votes: dict[str, int] = {}
+        for i in b["_items"]:
+            pid = prev.get(i["url"])
+            if pid:
+                votes[pid] = votes.get(pid, 0) + 1
+        if votes:
+            pid, n = max(votes.items(), key=lambda kv: (kv[1], kv[0]))
+            if pid not in taken and n >= max(1, len(b["_items"]) // 3):
+                b["id"] = pid
+                b["color"] = PALETTE[int(pid, 16) % len(PALETTE)]
+        taken.add(b["id"])
+    ai_cache["urlid"] = {i["url"]: b["id"] for b in bases for i in b["_items"]}
 
 
 def select_shown(bases: list[dict]) -> list[dict]:
@@ -727,6 +759,7 @@ def main() -> int:
     events = merge_events(groups, ai_cache)
     log(f"Об'єднання подій: {len(groups)} груп → {len(events)} історій")
     bases = [build_base(g, now) for g in events]
+    inherit_ids(bases, ai_cache)
     bases.sort(key=lambda s: s["score"], reverse=True)
     # розділи й регіони визначає ШІ (точніше за ключові слова); без ШІ — ключові слова
     ai_writer.classify(bases[:300], ai_cache, log)  # лише найрейтинговіші — решта на сайт однаково не потрапить

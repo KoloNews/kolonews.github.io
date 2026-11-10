@@ -33,13 +33,17 @@ MODELS = [m.strip() for m in os.environ.get(
     "GEMINI_MODELS", "gemini-flash-lite-latest,gemini-3.1-flash-lite,gemini-flash-latest,gemini-3.5-flash,gemma-4-26b-a4b-it").split(",") if m.strip()]
 MODEL = MODELS[0]
 _dead: set[str] = set()      # моделі, недоступні сьогодні (зберігаються в кеші, щоб не смикати їх щоразу)
+_run_dead: set[str] = set()  # моделі, що в ЦЬОМУ оновленні двічі поспіль не відповіли (помилка/тайм-аут)
+_fails: dict[str, int] = {}
+_started = time.time()
+TIME_BUDGET = int(os.environ.get("AI_TIME_BUDGET", "720"))  # секунд на всю роботу ШІ за одне оновлення
 _state: dict = {}
 PER_RUN = int(os.environ.get("AI_PER_RUN", "12"))        # текстів за один запуск
 CLS_PER_RUN = int(os.environ.get("AI_CLS_PER_RUN", "3"))   # запитів на розкладання за запуск (по 40 історій)
 # Безкоштовних запитів на добу всього ~900 (усі моделі разом). Допоміжні задачі (розділи, злиття,
 # перевірка розділів і фото) отримують не більше AUX_DAILY, решта — на тексти новин.
 AUX_DAILY = int(os.environ.get("AI_AUX_DAILY", "350"))
-DAILY_LIMIT = int(os.environ.get("AI_DAILY_LIMIT", "2500"))  # наш запобіжник на всі моделі разом
+DAILY_LIMIT = int(os.environ.get("AI_DAILY_LIMIT", "800"))  # запобіжник: ~900 безкоштовних запитів на добу на всі моделі, лишаємо запас
 PAUSE = 4.5                                               # секунд між запитами (≤ 15 за хвилину)
 TOPICS = ["tech", "economy", "crime", "sport", "science", "games", "crypto"]
 REGIONS = ["eurasia", "us", "cn", "ua"]
@@ -144,8 +148,10 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
         "generationConfig": {"temperature": 0.2, "maxOutputTokens": max(max_tokens, 4096)},
     }
     gemma_payload = json.dumps(gemma_body).encode()
+    if time.time() - _started > TIME_BUDGET:
+        raise QuotaExceeded()  # час на ШІ в цьому оновленні вичерпано — публікуємо, що є
     for model in MODELS:
-        if model in _dead:
+        if model in _dead or model in _run_dead:
             continue
         is_gemma = model.startswith("gemma")
         req = urllib.request.Request(
@@ -184,12 +190,14 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
                     time.sleep(8 * (attempt + 1))  # модель тимчасово перевантажена
                     continue
                 print(f"ШІ: помилка {e.code} ({model}): {raw[:200]}", flush=True)
+                _note_fail(model)
                 return None
             except Exception as e:
                 if attempt < 2:
                     time.sleep(5)
                     continue
                 print(f"ШІ: помилка з'єднання ({model}): {e}", flush=True)
+                _note_fail(model)
                 return None
         if switch:
             _dead.add(model)
@@ -200,6 +208,7 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
             continue
         if data is None:
             return None
+        _fails[model] = 0
         try:
             txt = data["candidates"][0]["content"]["parts"][-1]["text"]
             if is_gemma:  # беремо JSON між першою «{» і останньою «}»
@@ -208,6 +217,13 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
         except (KeyError, IndexError, ValueError):
             return None
     raise QuotaExceeded()
+
+
+def _note_fail(model: str) -> None:
+    _fails[model] = _fails.get(model, 0) + 1
+    if _fails[model] >= 2:  # двічі поспіль не відповіла — до кінця оновлення не чіпаємо
+        _run_dead.add(model)
+        print(f"ШІ: модель {model} не відповідає — пропускаю її до наступного оновлення", flush=True)
 
 
 def _aux_ok(state: dict) -> bool:
@@ -341,9 +357,18 @@ def run(bases: list[dict], cache: dict, log) -> None:
         return max((len(i.get("text") or "") for i in b["_items"]), default=0)
 
     todo = sorted((b for b in bases if need(b)), key=lambda b: (-need(b), own_text(b) >= 150, -b["score"]))
+    # рівномірно по добі: скільки запусків лишилось до скидання лімітів (08:00 UTC) і скільки запитів лишилось.
+    # Дозволяємо вдвічі більше за «рівну частку», щоб швидше наздоганяти, але не з'їсти все зранку.
+    now = datetime.now(timezone.utc)
+    reset = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    if reset <= now:
+        reset += timedelta(days=1)
+    runs_left = max(1.0, (reset - now).total_seconds() / 60 / 16)
+    left = max(0, DAILY_LIMIT - state["count"])
+    per_run = max(3, min(PER_RUN, int(2 * left / runs_left) + 1))
     done = 0
     for b in todo:
-        if done >= PER_RUN or state["count"] >= DAILY_LIMIT:
+        if done >= per_run or state["count"] >= DAILY_LIMIT:
             break
         material = material_for(b["_items"], names)
         if len(material) < 200:

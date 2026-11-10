@@ -164,6 +164,27 @@
   const AI_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18.5 15l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z" fill="currentColor"/></svg>';
   const matches = (s, topic, region) => s.cats.includes(region) && (topic === 'popular' || (s.topics || []).includes(topic)) && fresh(s);
   const sectionList = (topic, region) => (state.data ? state.data.stories.filter((s) => matches(s, topic, region)).slice(0, PER_SECTION) : []);
+  // головна (перша) новина різна в різних розділах: обираємо по черзі розділів —
+  // якщо найрейтинговіша вже головна в попередньому розділі, головною стає наступна
+  const heroCache = new Map();
+  const heroesFor = (region) => {
+    if (heroCache.has(region)) return heroCache.get(region);
+    const used = new Set();
+    const map = {};
+    TOPIC_IDS.forEach((t) => {
+      const list = sectionList(t, regionFor(t, region));
+      const h = list.find((x) => !used.has(x.id)) || list[0];
+      if (h) { map[t] = h.id; used.add(h.id); }
+    });
+    heroCache.set(region, map);
+    return map;
+  };
+  const orderedSection = (topic, region) => {
+    const list = sectionList(topic, region);
+    const hid = heroesFor(region)[topic];
+    const k = list.findIndex((x) => x.id === hid);
+    return k > 0 ? [list[k], ...list.slice(0, k), ...list.slice(k + 1)] : list;
+  };
   const regionFor = (topic, region) => (WORLD_ONLY.has(topic) ? 'world' : region);
   const hashFor = (topic, region, id) => `#${topic}/${regionFor(topic, region)}${id ? `/${id}` : ''}`;
 
@@ -336,7 +357,7 @@
 
   function renderList(animate = true) {
     if (!state.data) return;
-    state.list = sectionList(state.topic, state.region);
+    state.list = orderedSection(state.topic, state.region);
     renderHead(animate);
     if (!state.list.length) {
       el.grid.innerHTML = `<div class="empty"><span class="logo"></span><div>${esc(t().empty)}</div></div>`;
@@ -413,6 +434,7 @@
       const data = await res.json();
       if (lang !== state.lang) return;
       state.data = data;
+      heroCache.clear();
       const added = oldIds.size ? sectionList(state.topic, state.region).filter((s) => !oldIds.has(s.id)).length : 0;
       if (!silent || added) renderList(!silent);
       renderCounts();
