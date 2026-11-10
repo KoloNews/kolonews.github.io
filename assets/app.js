@@ -27,7 +27,7 @@
       machine: 'Машинний переклад', original: 'оригінал', showOrig: 'Показати оригінал', showTr: 'Показати переклад',
       noTr: 'Переклад тимчасово недоступний — показано оригінал',
       aiBy: (s) => `Текст написав ШІ на основі ${s}`, aiTr: 'перекладено з української', aiShort: 'ШІ',
-      points: 'Головне', srcTitle: 'Джерела', descBy: 'Короткий опис від видання',
+      points: 'Головне', srcTitle: 'Джерела', share: 'Поділитися', copyLink: 'Копіювати посилання', copied: 'Посилання скопійовано', more: 'Інші застосунки', descBy: 'Короткий опис від видання',
     },
     en: {
       popular: 'Popular', science: 'Science', tech: 'Tech', crime: 'Crime', sport: 'Sport', economy: 'Economy', games: 'Games', crypto: 'Crypto',
@@ -45,7 +45,7 @@
       machine: 'Machine translation', original: 'original', showOrig: 'Show original', showTr: 'Show translation',
       noTr: 'Translation is unavailable right now — showing the original',
       aiBy: (s) => `Written by AI from ${s}`, aiTr: 'translated from Ukrainian', aiShort: 'AI',
-      points: 'Key points', srcTitle: 'Sources', descBy: 'Short description from the outlet',
+      points: 'Key points', srcTitle: 'Sources', share: 'Share', copyLink: 'Copy link', copied: 'Link copied', more: 'Other apps', descBy: 'Short description from the outlet',
     },
     zh: {
       popular: '热门', science: '科学', tech: '科技', crime: '犯罪', sport: '体育', economy: '经济', games: '游戏', crypto: '加密货币',
@@ -63,7 +63,7 @@
       machine: '机器翻译', original: '原文', showOrig: '显示原文', showTr: '显示译文',
       noTr: '暂时无法翻译，显示原文',
       aiBy: (s) => `AI 根据${s}撰写`, aiTr: '译自乌克兰语', aiShort: 'AI',
-      points: '要点', srcTitle: '来源', descBy: '媒体简介',
+      points: '要点', srcTitle: '来源', share: '分享', copyLink: '复制链接', copied: '链接已复制', more: '其他应用', descBy: '媒体简介',
     },
     ru: {
       popular: 'Популярное', science: 'Наука', tech: 'Технологии', crime: 'Криминал', sport: 'Спорт', economy: 'Экономика', games: 'Игры', crypto: 'Криптовалюта',
@@ -81,7 +81,7 @@
       machine: 'Машинный перевод', original: 'оригинал', showOrig: 'Показать оригинал', showTr: 'Показать перевод',
       noTr: 'Перевод временно недоступен — показан оригинал',
       aiBy: (s) => `Текст написал ИИ на основе ${s}`, aiTr: 'переведено с украинского', aiShort: 'ИИ',
-      points: 'Главное', srcTitle: 'Источники', descBy: 'Краткое описание от издания',
+      points: 'Главное', srcTitle: 'Источники', share: 'Поделиться', copyLink: 'Копировать ссылку', copied: 'Ссылка скопирована', more: 'Другие приложения', descBy: 'Краткое описание от издания',
     },
   };
 
@@ -503,6 +503,72 @@
 
   // ---------------------------------------------------------------- сторінка історії
   const ARROW = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // ---------------------------------------------------------------- поширення
+  const SV = (body, fill) => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ${fill ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"'}>${body}</svg>`;
+  const SHARE_ICON = SV('<path d="M12 15V3M7.5 7.5L12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>');
+  const SHARES = [
+    { id: 'whatsapp', name: 'WhatsApp', icon: SV('<path d="M3.6 20.4l1.2-4A8.4 8.4 0 1 1 8 19.3z"/><path d="M9 8.6c.1 2.9 3 6.2 6.3 6.5l1-1.3-1.9-1-1 .8c-1.1-.5-2.1-1.5-2.6-2.6l.8-1-1-1.9z" fill="currentColor" stroke="none"/>'),
+      url: (u, t) => `https://wa.me/?text=${encodeURIComponent(`${t}\n${u}`)}` },
+    { id: 'telegram', name: 'Telegram', icon: SV('<path d="M21 4L3 11.2l6.2 2.2L11.5 20l3.3-4.2 4.6 3.4z"/><path d="M9.2 13.4L21 4"/>'),
+      url: (u, t) => `https://t.me/share/url?url=${encodeURIComponent(u)}&text=${encodeURIComponent(t)}` },
+    { id: 'viber', name: 'Viber', icon: SV('<path d="M12 3c5.2 0 8 2.4 8 7.3S17.2 17.6 12 17.6h-1.3L8 20.6v-3.4C5.3 16.3 4 14 4 10.3 4 5.4 6.8 3 12 3z"/><path d="M9.6 7.8c0 2.6 2.1 5 4.7 5.3l.8-1-1.5-.8-.7.6c-.9-.4-1.6-1.1-2-2l.6-.7-.8-1.5z" fill="currentColor" stroke="none"/>'),
+      url: (u, t) => `viber://forward?text=${encodeURIComponent(`${t} ${u}`)}` },
+    { id: 'facebook', name: 'Facebook', icon: SV('<path d="M13.6 21v-7.6h2.6l.4-3.1h-3V8.4c0-.9.3-1.5 1.5-1.5h1.6V4.2c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H7.9v3.1h2.6V21z"/>', true),
+      url: (u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
+    { id: 'x', name: 'X', icon: SV('<path d="M17.6 3.5h3l-6.6 7.5 7.8 9.5h-6.1l-4.8-5.8-5.5 5.8H2.4l7-7.9L2 3.5h6.2l4.3 5.3zm-1 15.3h1.7L7.6 5.1H5.8z"/>', true),
+      url: (u, t) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}` },
+    { id: 'copy', icon: SV('<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>') },
+  ];
+  // посилання на сторінку з прев'ю (заголовок і фото в месенджерах), яка одразу відкриває новину
+  const shareUrl = (id) => new URL(`s/${state.lang}/${id}.html`, location.href.split('#')[0]).href;
+  function shareItems(s, menu) {
+    const L = t();
+    const cls = menu ? 'sh-item' : 'sh-btn';
+    const inner = (icon, label) => (menu ? `${icon}<span>${esc(label)}</span>` : icon);
+    const list = SHARES.map((x) => {
+      const label = x.name || L.copyLink;
+      const attrs = `title="${esc(label)}" aria-label="${esc(label)}"${menu ? ' role="menuitem"' : ''}`;
+      return x.url
+        ? `<a class="${cls}" href="${esc(x.url(shareUrl(s.id), s.title))}"${x.id === 'viber' ? '' : ' target="_blank" rel="noopener noreferrer"'} ${attrs} data-share-link>${inner(x.icon, label)}</a>`
+        : `<button class="${cls}" type="button" data-share="${x.id}" data-id="${esc(s.id)}" ${attrs}>${inner(x.icon, label)}</button>`;
+    });
+    if (navigator.share) list.push(`<button class="${cls}" type="button" data-share="native" data-id="${esc(s.id)}" title="${esc(L.more)}" aria-label="${esc(L.more)}"${menu ? ' role="menuitem"' : ''}>${inner(SHARE_ICON, L.more)}</button>`);
+    return list.join('');
+  }
+  function shareHTML(s) {
+    return `<section class="sp-share"><h2>${esc(t().share)}</h2><div class="sh-list">${shareItems(s, false)}</div></section>`;
+  }
+  function closeShareMenu() {
+    const d = $('sh-drop');
+    if (d) { d.classList.remove('open'); d.querySelector('[data-share="menu"]').setAttribute('aria-expanded', 'false'); }
+  }
+  async function doShare(kind, id) {
+    const s = state.data && state.data.stories.find((x) => x.id === id);
+    if (!s) return;
+    const url = shareUrl(id);
+    if (kind === 'menu') {
+      const d = $('sh-drop');
+      const open = !d.classList.contains('open');
+      d.classList.toggle('open', open);
+      d.querySelector('[data-share="menu"]').setAttribute('aria-expanded', String(open));
+      return;
+    }
+    closeShareMenu();
+    if (kind === 'native' && navigator.share) {
+      try { await navigator.share({ title: s.title, text: s.title, url }); } catch (e) { /* користувач закрив меню */ }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e2) { /* ігноруємо */ }
+      ta.remove();
+    }
+    toast(t().copied);
+  }
   const CHEV = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="${d === 'l' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const details = new Map();
   let listScroll = 0;
@@ -661,7 +727,7 @@
     document.title = `${s.title} — Коло Новин`;
     el.story.style.setProperty('--c', s.color);
     el.story.innerHTML = `
-      <div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button><div class="sp-pills">${storyPills(s)}</div></div>
+      <div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button><div class="sp-pills">${storyPills(s)}</div><div class="sh-drop" id="sh-drop"><button class="sp-share-top" type="button" data-share="menu" data-id="${esc(s.id)}" aria-haspopup="true" aria-expanded="false" title="${esc(L.share)}">${SHARE_ICON}<span>${esc(L.share)}</span></button><div class="sh-menu" role="menu">${shareItems(s, true)}</div></div></div>
       <header class="sp-head">
         <div class="meta"><span class="avatars">${(s.names || []).slice(0, 3).map((n) => `<i>${esc(initials(n).slice(0, 1))}</i>`).join('')}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(startOf(s))}">${esc(when(startOf(s)))}</time></div>
         <h1 id="sp-title">${esc(s.title)}</h1>
@@ -669,6 +735,7 @@
       </header>
       <div id="sp-gallery">${galleryHTML(s.image ? [{ u: s.image, s: (s.names || [''])[0], t: s.imageText ? 1 : 0 }] : [])}</div>
       <div id="sp-text">${bodyHTML(s, null)}</div>
+      ${shareHTML(s)}
       <section class="sp-sources" id="sp-sources"><h2>${esc(L.srcTitle)}</h2><div class="sp-skel"></div></section>
       <section class="sp-related"><h2>${esc(L.related)}</h2><div class="grid related" id="sp-related">${relatedHTML(s)}</div></section>`;
     wireGallery();
@@ -763,12 +830,21 @@
     const langBtn = e.target.closest('[data-lang]');
     if (langBtn) { setLang(langBtn.dataset.lang); return; }
     if (e.target.closest('[data-back]')) { goBack(); return; }
+    const sh = e.target.closest('[data-share]');
+    if (sh) { doShare(sh.dataset.share, sh.dataset.id); return; }
+    if (e.target.closest('[data-share-link]')) { closeShareMenu(); return; }
+    if (!e.target.closest('#sh-drop')) closeShareMenu();
     const card = e.target.closest('.card');
     if (card) { openStory(card.dataset.id); return; }
     if (!e.target.closest('#lang-drop')) closeLangMenu();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { if (state.openId) goBack(); closeLangMenu(); }
+    if (e.key === 'Escape') {
+      const d = $('sh-drop');
+      if (d && d.classList.contains('open')) { closeShareMenu(); return; }
+      if (state.openId) goBack();
+      closeLangMenu();
+    }
     if (state.openId && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && $('gallery')) {
       const btn = $('gallery').querySelector(e.key === 'ArrowLeft' ? '.g-nav.prev' : '.g-nav.next');
       if (btn) btn.click();

@@ -37,6 +37,7 @@ jobs:
             data/meta_cache.json
             data/img_cache.json
             data/ai_cache.json
+            data/s
           key: kolo-cache-${{ github.run_id }}
           restore-keys: kolo-cache-
       - name: Встановити Pillow (порівняння фото)
@@ -54,6 +55,9 @@ jobs:
           sed -i "s#assets/app.js\"#assets/app.js?v=${GITHUB_SHA::8}\"#; s#assets/style.css\"#assets/style.css?v=${GITHUB_SHA::8}\"#" _site/index.html
           cp data/uk.json data/en.json data/zh.json data/ru.json _site/data/
           cp -r data/uk data/en data/zh data/ru _site/data/
+          # сторінки для поширення в соцмережах (з прев'ю) і 404 → на головну
+          cp -r data/s _site/s
+          cp 404.html _site/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -302,11 +302,33 @@ a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transpar
 .story > *:nth-child(5) { animation-delay: .16s; }
 .story > *:nth-child(6) { animation-delay: .2s; }
 #list-view.back-in { animation: rise .45s var(--ease-out) both; }
-.sp-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 18px; }
+.sp-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 0 18px; position: relative; z-index: 5; }
 .sp-back { display: inline-flex; align-items: center; gap: 4px; padding: 8px 14px 8px 8px; border-radius: 999px; font-weight: 700; font-size: 15px; background: var(--surface-2); border: 1px solid var(--line); transition: transform .25s var(--ease-spring), background-color .2s; }
 .sp-back:hover { background: var(--surface); }
 .sp-back:active { transform: scale(.94); }
 .sp-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.sh-drop { position: relative; margin-left: auto; }
+.sh-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 230px; padding: 6px; border-radius: 16px;
+  background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow);
+  transform-origin: top right; transform: scale(.85) translateY(-6px); opacity: 0; visibility: hidden;
+  transition: transform .35s var(--ease-spring), opacity .2s, visibility .35s;
+}
+.sh-drop.open .sh-menu { transform: none; opacity: 1; visibility: visible; }
+.sh-item { display: flex; width: 100%; align-items: center; gap: 12px; white-space: nowrap; padding: 10px 12px; border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--text); text-align: left; }
+.sh-item:hover { background: var(--surface-2); }
+.sh-item svg { flex: none; }
+.sh-item[data-share="copy"] { border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; margin-top: 4px; padding-top: 12px; }
+.sp-share-top { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--line); transition: transform .25s var(--ease-spring), color .2s, background-color .2s; }
+.sp-share-top svg { width: 18px; height: 18px; }
+.sp-share-top:hover { color: var(--text); background: var(--surface); }
+.sp-share-top:active { transform: scale(.94); }
+.sp-share { margin: 8px 0 32px; max-width: 760px; }
+.sp-share h2 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin: 0 0 12px; }
+.sh-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.sh-btn { width: 46px; height: 46px; display: inline-grid; place-items: center; border-radius: 50%; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); transition: transform .25s var(--ease-spring), background-color .2s, border-color .2s; }
+.sh-btn:hover { background: var(--surface); border-color: var(--line-2); transform: translateY(-2px); }
+.sh-btn:active { transform: scale(.92); }
 .sp-pill { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-2); border: 1px solid var(--line-2); transition: color .2s, background-color .2s; }
 .sp-pill:hover { color: var(--text); background: var(--surface-2); }
 .sp-head .meta { color: color-mix(in oklab, var(--c) 35%, var(--text)); }

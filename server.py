@@ -30,6 +30,21 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?", 1)[0]
         # віддаємо лише файли сайту, а не код збирача чи інші файли
+        if ".." not in path and path.startswith("/s/") and path.endswith(".html"):
+            # сторінки для поширення (на сайті — /s/<мова>/<id>.html, локально лежать у data/s/)
+            self.path = "/data" + self.path
+            path = "/data" + path
+            try:
+                body = (ROOT / path.lstrip("/")).read_bytes()
+            except OSError:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if not any(path == a or (a.endswith("/") and a != "/" and path.startswith(a)) for a in ALLOWED) or ".." in path:
             self.send_error(404)
             return

@@ -556,6 +556,58 @@ def ui_lang(code: str) -> str:
     return {"zh-TW": "zh-Hant"}.get(code, code)
 
 
+SITE_URL = "https://kolonews.github.io"
+SHARE_KEEP = timedelta(days=7)  # скільки днів працюють посилання, якими поділилися
+SHARE_TPL = """<!doctype html>
+<html lang="{lang}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} — Коло Новин</title>
+<meta name="description" content="{desc}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Коло Новин">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{desc}">
+<meta property="og:image" content="{image}">
+<meta property="og:url" content="{url}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{title}">
+<meta name="twitter:description" content="{desc}">
+<meta name="twitter:image" content="{image}">
+<link rel="canonical" href="{url}">
+<meta http-equiv="refresh" content="0; url={target}">
+<script>location.replace({target_js});</script>
+</head><body style="background:#0c0e12;color:#eee;font:16px system-ui;padding:24px">
+<a href="{target}" style="color:#eee">{title}</a>
+</body></html>
+"""
+
+
+def write_share_pages(stories: list[dict], L: str, now: datetime) -> None:
+    """Сторінки для поширення: data/s/<мова>/<id>.html — з заголовком, описом і фото (прев'ю в WhatsApp,
+    Telegram, Facebook тощо), які одразу відкривають новину на сайті. Живуть SHARE_KEEP днів."""
+    sdir = DATA / "s" / L
+    sdir.mkdir(parents=True, exist_ok=True)
+    for st in stories:
+        topic = (st.get("topics") or ["popular"])[0]
+        target = f"../../#{topic}/world/{st['id']}"
+        img = st.get("image") or ""
+        if not img.startswith("https://"):
+            img = f"{SITE_URL}/assets/icon-512.png"
+        desc = re.sub(r"\s+", " ", st.get("summary") or "").strip()
+        if len(desc) > 200:
+            desc = desc[:197].rsplit(" ", 1)[0] + "…"
+        e = lambda x: html.escape(x, quote=True)
+        page = SHARE_TPL.format(lang=L, title=e(st["title"]), desc=e(desc), image=e(img),
+                                url=e(f"{SITE_URL}/s/{L}/{st['id']}.html"), target=e(target),
+                                target_js=json.dumps(target).replace("<", "\\u003c"))
+        (sdir / f"{st['id']}.html").write_text(page, "utf-8")
+    # старі сторінки (понад SHARE_KEEP) прибираємо; якщо історії вже немає — сайт покаже «новина недоступна»
+    limit = now.timestamp() - SHARE_KEEP.total_seconds()
+    for old in sdir.glob("*.html"):
+        if old.stat().st_mtime < limit:
+            old.unlink()
+
+
 def render_language(bases: list[dict], L: str, tr: Translator, ai: dict) -> tuple[list[dict], list[dict]]:
     """Готує історії для мови L.
     Текст: від ШІ (написаний українською, перекладений Google), а якщо його ще немає —
@@ -846,6 +898,7 @@ def main() -> int:
         tmp = DATA / f"{L}.json.tmp"
         tmp.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), "utf-8")
         tmp.replace(DATA / f"{L}.json")
+        write_share_pages(stories, L, now)
         n_ai = sum(1 for s in stories if s.get("ai"))
         log(f"[{L}] історій: {len(stories)}, з текстом ШІ: {n_ai}")
 
