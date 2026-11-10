@@ -320,7 +320,7 @@ SITE_LANGS = ("uk", "en", "zh", "ru")
 MAX_SOURCES = 15
 
 
-TEXT_CARD_RE = re.compile(r"/imgly/share/|/share[-_]?image|og[-_]?image|/social[-_]?card|/og/|/opengraph|/static/previews/", re.I)
+TEXT_CARD_RE = re.compile(r"/automatic-og/|/imgly/share/|/share[-_]?image|og[-_]?image|/social[-_]?card|/og/|/opengraph|/static/previews/", re.I)
 
 
 def central(items: list[dict]) -> dict:
