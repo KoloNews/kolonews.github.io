@@ -260,6 +260,14 @@ a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transpar
 .lang-tag { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 6px; border-radius: 6px; margin-left: 6px; background: rgba(255, 255, 255, .1); color: var(--text-2); }
 :root[data-theme="light"] .lang-tag { background: rgba(0, 0, 0, .06); }
 
+/* фото з надрукованим текстом: цілим, без обрізання; по боках — розмита копія */
+.media.fit img, .g-item.fit img { object-fit: contain; position: relative; z-index: 1; }
+.media-bg { position: absolute; inset: -24px; background-size: cover; background-position: center; filter: blur(22px) brightness(.45) saturate(1.2); transform: scale(1.1); }
+.media.fit::after { z-index: 2; background: linear-gradient(to bottom, transparent 82%, var(--tint) 100%); }
+.card.hero .media.fit::after { background: linear-gradient(to right, transparent 88%, var(--tint) 100%); }
+@media (max-width: 720px) { .card.hero .media.fit::after { background: linear-gradient(to bottom, transparent 82%, var(--tint) 100%); } }
+.card:hover .media.fit img { transform: none; }
+
 /* головна (перша) історія */
 .card.hero { grid-column: 1 / -1; flex-direction: row; min-height: 380px; }
 .card.hero .media { aspect-ratio: auto; flex: 1.45; }

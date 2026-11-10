@@ -317,7 +317,7 @@ SITE_LANGS = ("uk", "en", "zh", "ru")
 MAX_SOURCES = 15
 
 
-TEXT_CARD_RE = re.compile(r"/imgly/share/|/share[-_]?image|og[-_]?image|/social[-_]?card|/og/|/opengraph", re.I)
+TEXT_CARD_RE = re.compile(r"/imgly/share/|/share[-_]?image|og[-_]?image|/social[-_]?card|/og/|/opengraph|/static/previews/", re.I)
 
 
 def central(items: list[dict]) -> dict:
@@ -796,15 +796,21 @@ def main() -> int:
         for im in b["_gallery"]:
             if TEXT_CARD_RE.search(im["u"]):
                 txt[im["u"]] = True
-    need = [im["u"] for b in shown if len(b["_gallery"]) >= 2 for im in b["_gallery"][:3] if im["u"] not in txt]
+    # спершу головні (перші) фото всіх історій — вони на картках; потім ще по два з галерей
+    need = [b["_gallery"][0]["u"] for b in shown if b["_gallery"] and b["_gallery"][0]["u"] not in txt]
+    need += [im["u"] for b in shown for im in b["_gallery"][1:3] if im["u"] not in txt]
     if need and ai_writer.api_key():
         ai_writer.image_text_flags(images.thumbnails(list(dict.fromkeys(need))[:16]), ai_cache, log)
     for b in shown:
         g = b["_gallery"]
         clean = [im for im in g if not txt.get(im["u"])]
         g[:] = clean if clean else g[:1]
+        for im in g:  # лишилось єдине фото з текстом — сайт покаже його цілим, без обрізання
+            if txt.get(im["u"]):
+                im["t"] = 1
         if g:
             b["image"] = g[0]["u"]
+        b["imageText"] = bool(g and txt.get(g[0]["u"]))
 
     # 5. текст від ШІ (безкоштовний Gemini)
     ai_writer.run(shown, ai_cache, log)
