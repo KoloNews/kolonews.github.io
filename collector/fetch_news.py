@@ -308,6 +308,22 @@ SITE_LANGS = ("uk", "en", "zh", "ru")
 MAX_SOURCES = 15
 
 
+TEXT_CARD_RE = re.compile(r"/imgly/share/|/share[-_]?image|og[-_]?image|/social[-_]?card|/og/|/opengraph", re.I)
+
+
+def central(items: list[dict]) -> dict:
+    """Найтиповіша публікація історії: її англійський заголовок має найбільше спільних слів з іншими.
+    Так заголовок історії без тексту ШІ відповідає головній події, а не окремій статті."""
+    if len(items) < 3:
+        return min(items, key=lead_key)
+    tks = [tokens(i["en_title"], "en") for i in items]
+    def score(k):
+        return sum(len(tks[k] & tks[m]) for m in range(len(items)) if m != k)
+    # при рівному збігу — коротший (загальніший) заголовок, далі — вище у списку джерел
+    best = max(range(len(items)), key=lambda k: (score(k), -len(tks[k]), -items[k]["prio"]))
+    return items[best]
+
+
 def lead_key(i: dict):
     # з описом і фото — краще; далі — вище у списку feeds.py; далі — новіше
     return (not i["summary"], not i["image"], i["prio"], -i["time"].timestamp())
@@ -325,7 +341,7 @@ def topics_of(group: list[dict]) -> list[str]:
 
 
 def build_base(group: list[dict], now: datetime) -> dict:
-    lead = min(group, key=lead_key)
+    lead = central(group)
     image = lead["image"] or next((i["image"] for i in group if i["image"]), "")
     latest = max(i["time"] for i in group)
     seen, items = set(), []
@@ -514,7 +530,7 @@ def render_language(bases: list[dict], L: str, tr: Translator, ai: dict) -> tupl
     need: dict[str, list[str]] = {}
     for b in bases:
         native = [i for i in b["_items"] if i["lang"] == L]
-        lead = min(native, key=lead_key) if native else b["_lead"]
+        lead = central(native) if native else b["_lead"]
         srcs = b["_items"][:MAX_SOURCES]
         longest = max(native or b["_items"], key=lambda i: len(i["text"]))
         a = ai.get(b["id"], {}).get("a")
@@ -713,7 +729,7 @@ def main() -> int:
     bases = [build_base(g, now) for g in events]
     bases.sort(key=lambda s: s["score"], reverse=True)
     # розділи й регіони визначає ШІ (точніше за ключові слова); без ШІ — ключові слова
-    ai_writer.classify(bases, ai_cache, log)
+    ai_writer.classify(bases[:300], ai_cache, log)  # лише найрейтинговіші — решта на сайт однаково не потрапить
     cls = ai_cache.get("cls", {})
     for b in bases:
         c = cls.get(b["id"])
@@ -734,15 +750,20 @@ def main() -> int:
     for b in shown:
         build_gallery(b)
     images.dedupe_galleries([b["_gallery"] for b in shown], img_cache)
-    # головне фото — без надрукованого тексту (якщо фото з текстом єдине — лишаємо його)
+    # фото з надрукованим текстом прибираємо з галереї (якщо таке фото єдине — лишаємо його).
+    # Картки-«поширення» (meduza.io/imgly/share, og-image тощо) розпізнаємо за адресою — без ШІ.
     txt = ai_cache.setdefault("txt", {})
-    need = [im["u"] for b in shown if len(b["_gallery"]) >= 2 for im in b["_gallery"][:MAX_IMAGES] if im["u"] not in txt]
+    for b in shown:
+        for im in b["_gallery"]:
+            if TEXT_CARD_RE.search(im["u"]):
+                txt[im["u"]] = True
+    need = [im["u"] for b in shown if len(b["_gallery"]) >= 2 for im in b["_gallery"][:3] if im["u"] not in txt]
     if need and ai_writer.api_key():
-        ai_writer.image_text_flags(images.thumbnails(list(dict.fromkeys(need))[:160]), ai_cache, log)
+        ai_writer.image_text_flags(images.thumbnails(list(dict.fromkeys(need))[:16]), ai_cache, log)
     for b in shown:
         g = b["_gallery"]
-        if len(g) >= 2:
-            g.sort(key=lambda im: bool(txt.get(im["u"])))  # фото без тексту — першими (порядок зберігається)
+        clean = [im for im in g if not txt.get(im["u"])]
+        g[:] = clean if clean else g[:1]
         if g:
             b["image"] = g[0]["u"]
 

@@ -30,12 +30,15 @@ ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:gene
 # Черга моделей: денний ліміт у Google рахується окремо для кожної моделі.
 # Коли в моделі закінчився денний ліміт (або вона недоступна) — переходимо до наступної.
 MODELS = [m.strip() for m in os.environ.get(
-    "GEMINI_MODELS", "gemini-flash-lite-latest,gemini-3.1-flash-lite,gemini-flash-latest,gemini-3.5-flash").split(",") if m.strip()]
+    "GEMINI_MODELS", "gemini-flash-lite-latest,gemini-3.1-flash-lite,gemini-flash-latest,gemini-3.5-flash,gemma-4-26b-a4b-it").split(",") if m.strip()]
 MODEL = MODELS[0]
 _dead: set[str] = set()      # моделі, недоступні сьогодні (зберігаються в кеші, щоб не смикати їх щоразу)
 _state: dict = {}
 PER_RUN = int(os.environ.get("AI_PER_RUN", "12"))        # текстів за один запуск
-CLS_PER_RUN = int(os.environ.get("AI_CLS_PER_RUN", "25"))  # запитів на розкладання за запуск (по 40 історій)
+CLS_PER_RUN = int(os.environ.get("AI_CLS_PER_RUN", "3"))   # запитів на розкладання за запуск (по 40 історій)
+# Безкоштовних запитів на добу всього ~900 (усі моделі разом). Допоміжні задачі (розділи, злиття,
+# перевірка розділів і фото) отримують не більше AUX_DAILY, решта — на тексти новин.
+AUX_DAILY = int(os.environ.get("AI_AUX_DAILY", "350"))
 DAILY_LIMIT = int(os.environ.get("AI_DAILY_LIMIT", "2500"))  # наш запобіжник на всі моделі разом
 PAUSE = 4.5                                               # секунд між запитами (≤ 15 за хвилину)
 TOPICS = ["tech", "economy", "crime", "sport", "science", "games", "crypto"]
@@ -133,11 +136,20 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
         },
     }
     payload = json.dumps(body).encode()
+    # Gemma не підтримує systemInstruction і JSON-схему — просимо JSON прямо в тексті
+    gemma_body = {
+        "contents": [{"role": "user", "parts": (parts or []) + [{"text":
+            f"{system}\n\nВідповідай ЛИШЕ одним JSON-об'єктом за цією схемою (без пояснень і без ```):\n"
+            f"{json.dumps(schema, ensure_ascii=False)}\n\n{text}"}]}],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": max(max_tokens, 4096)},
+    }
+    gemma_payload = json.dumps(gemma_body).encode()
     for model in MODELS:
         if model in _dead:
             continue
+        is_gemma = model.startswith("gemma")
         req = urllib.request.Request(
-            ENDPOINT.format(model=model), data=payload,
+            ENDPOINT.format(model=model), data=gemma_payload if is_gemma else payload,
             headers={"Content-Type": "application/json", "x-goog-api-key": key},
         )
         data, switch = None, False
@@ -189,10 +201,23 @@ def call(system: str, text: str, schema: dict, key: str, max_tokens: int = 3000,
         if data is None:
             return None
         try:
-            return json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+            txt = data["candidates"][0]["content"]["parts"][-1]["text"]
+            if is_gemma:  # беремо JSON між першою «{» і останньою «}»
+                txt = txt[txt.index("{"):txt.rindex("}") + 1]
+            return json.loads(txt)
         except (KeyError, IndexError, ValueError):
             return None
     raise QuotaExceeded()
+
+
+def _aux_ok(state: dict) -> bool:
+    """Чи лишився денний бюджет на допоміжні задачі (щоб основне — тексти — не залишились без ліміту)."""
+    return state.get("aux", 0) < AUX_DAILY and state["count"] < DAILY_LIMIT
+
+
+def _aux_used(state: dict) -> None:
+    state["count"] += 1
+    state["aux"] = state.get("aux", 0) + 1
 
 
 FOREIGN = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]")  # ієрогліфи, кана, хангиль
@@ -248,7 +273,7 @@ def _budget(cache: dict) -> dict:
     today = (datetime.now(timezone.utc) - timedelta(hours=8)).strftime("%Y-%m-%d")
     state = cache.setdefault("_state", {})
     if state.get("day") != today:
-        state.update(day=today, count=0, dead=[])
+        state.update(day=today, count=0, aux=0, dead=[])
     _dead.update(state.get("dead", []))
     _state = state
     return state
@@ -264,7 +289,7 @@ def classify(bases: list[dict], cache: dict, log) -> None:
     todo = [b for b in bases if b["id"] not in cls]  # bases уже відсортовані за рейтингом
     done = 0
     for start in range(0, len(todo), CLS_BATCH):
-        if done >= CLS_PER_RUN or state["count"] >= DAILY_LIMIT:
+        if done >= CLS_PER_RUN or not _aux_ok(state):
             break
         batch = todo[start:start + CLS_BATCH]
         lines = []
@@ -278,7 +303,7 @@ def classify(bases: list[dict], cache: dict, log) -> None:
         except QuotaExceeded:
             log("ШІ: досягнуто ліміту безкоштовного тарифу — розкладання продовжимо згодом")
             break
-        state["count"] += 1
+        _aux_used(state)
         done += 1
         for it in (out or {}).get("items", []):
             n = it.get("i")
@@ -375,7 +400,7 @@ def same_event(pairs: list[tuple[str, str, str]], cache: dict, log) -> dict[str,
     todo = [p for p in pairs if p[0] not in known]
     asked = 0
     for start in range(0, len(todo), 40):
-        if asked >= 6 or state["count"] >= DAILY_LIMIT:
+        if asked >= 2 or not _aux_ok(state):
             break
         batch = todo[start:start + 40]
         text = "\n".join(f"{n}. A: {a}\n   B: {b}" for n, (_, a, b) in enumerate(batch))
@@ -383,7 +408,7 @@ def same_event(pairs: list[tuple[str, str, str]], cache: dict, log) -> dict[str,
             res = call(SAME_SYSTEM, text, SAME_SCHEMA, key, max_tokens=3000)
         except QuotaExceeded:
             break
-        state["count"] += 1
+        _aux_used(state)
         asked += 1
         for it in (res or {}).get("pairs", []):
             n = it.get("i")
@@ -414,7 +439,7 @@ TEXT_SCHEMA = {
 }
 
 
-def image_text_flags(thumbs: dict[str, bytes], cache: dict, log, max_requests: int = 15) -> None:
+def image_text_flags(thumbs: dict[str, bytes], cache: dict, log, max_requests: int = 2) -> None:
     """Записує в cache["txt"][адреса] = True, якщо на фото надрукований текст."""
     key = api_key()
     known = cache.setdefault("txt", {})
@@ -424,7 +449,7 @@ def image_text_flags(thumbs: dict[str, bytes], cache: dict, log, max_requests: i
     state = _budget(cache)
     asked = 0
     for start in range(0, len(todo), 8):
-        if asked >= max_requests or state["count"] >= DAILY_LIMIT:
+        if asked >= max_requests or not _aux_ok(state):
             break
         batch = todo[start:start + 8]
         parts = []
@@ -435,7 +460,7 @@ def image_text_flags(thumbs: dict[str, bytes], cache: dict, log, max_requests: i
             res = call(TEXT_SYSTEM, "Відповідай для кожного зображення.", TEXT_SCHEMA, key, max_tokens=800, parts=parts)
         except QuotaExceeded:
             break
-        state["count"] += 1
+        _aux_used(state)
         asked += 1
         for it in (res or {}).get("images", []):
             n = it.get("i")
@@ -473,7 +498,7 @@ VERIFY_SCHEMA = {
 }
 
 
-def verify_topics(checks: list[tuple[str, str, str]], cache: dict, log, max_requests: int = 12) -> dict[str, bool]:
+def verify_topics(checks: list[tuple[str, str, str]], cache: dict, log, max_requests: int = 3) -> dict[str, bool]:
     """checks: (ключ, тема, текст новини). Повертає {ключ: чи справді тема головна}."""
     key = api_key()
     known = cache.setdefault("ver", {})
@@ -484,7 +509,7 @@ def verify_topics(checks: list[tuple[str, str, str]], cache: dict, log, max_requ
     todo = [c for c in checks if c[0] not in known]
     asked = 0
     for start in range(0, len(todo), 40):
-        if asked >= max_requests or state["count"] >= DAILY_LIMIT:
+        if asked >= max_requests or not _aux_ok(state):
             break
         batch = todo[start:start + 40]
         text = "\n".join(f"{n}. Розділ: {TOPIC_NAMES[t]}\n   Новина: {txt}" for n, (_, t, txt) in enumerate(batch))
@@ -492,7 +517,7 @@ def verify_topics(checks: list[tuple[str, str, str]], cache: dict, log, max_requ
             res = call(VERIFY_SYSTEM, text, VERIFY_SCHEMA, key, max_tokens=3000)
         except QuotaExceeded:
             break
-        state["count"] += 1
+        _aux_used(state)
         asked += 1
         for it in (res or {}).get("items", []):
             n = it.get("i")
