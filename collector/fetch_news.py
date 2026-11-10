@@ -368,6 +368,7 @@ def build_base(group: list[dict], now: datetime) -> dict:
         "id": sid,
         "image": image,
         "time": latest.isoformat(),
+        "first": first["time"].isoformat(),
         "cats": categorize(group),
         "topics": topics_of(group),
         "sourceCount": n_src,

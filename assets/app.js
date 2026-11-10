@@ -17,7 +17,7 @@
       sections: 'Розділи', region: 'Регіон',
       stories: { one: 'історія', few: 'історії', many: 'історій', other: 'історії' },
       sources: { one: 'джерело', few: 'джерела', many: 'джерел', other: 'джерела' },
-      sub: (n) => `${n} за рейтингом · за 24 години`, updated: 'Оновлено', top: 'Головне', readAt: 'Читати на',
+      sub: (n) => `${n} за часом · за 24 години`, updated: 'Оновлено', top: 'Головне', readAt: 'Читати на',
       empty: 'За останні 24 години новин тут немає', error: 'Не вдалося завантажити новини. Перевірте з’єднання.',
       retry: 'Спробувати ще', refresh: 'Оновити', theme: 'Змінити тему', language: 'Мова',
       fresh: (n) => `Нових історій: ${n}`, upToDate: 'Новини актуальні',
@@ -35,7 +35,7 @@
       sections: 'Sections', region: 'Region',
       stories: { one: 'story', other: 'stories' },
       sources: { one: 'source', other: 'sources' },
-      sub: (n) => `${n} by rating · last 24 hours`, updated: 'Updated', top: 'Top story', readAt: 'Read on',
+      sub: (n) => `${n} by time · last 24 hours`, updated: 'Updated', top: 'Top story', readAt: 'Read on',
       empty: 'No stories here in the last 24 hours', error: 'Couldn’t load the news. Check your connection.',
       retry: 'Try again', refresh: 'Refresh', theme: 'Switch theme', language: 'Language',
       fresh: (n) => `New stories: ${n}`, upToDate: 'You’re up to date',
@@ -53,7 +53,7 @@
       sections: '栏目', region: '地区',
       stories: { other: '条报道' },
       sources: { other: '个来源' },
-      sub: (n) => `${n} · 按热度排序 · 24小时内`, updated: '更新于', top: '头条', readAt: '阅读原文：',
+      sub: (n) => `${n} · 按时间排序 · 24小时内`, updated: '更新于', top: '头条', readAt: '阅读原文：',
       empty: '过去24小时内暂无新闻', error: '无法加载新闻，请检查网络连接。',
       retry: '重试', refresh: '刷新', theme: '切换主题', language: '语言',
       fresh: (n) => `新报道：${n}`, upToDate: '已是最新',
@@ -71,7 +71,7 @@
       sections: 'Разделы', region: 'Регион',
       stories: { one: 'история', few: 'истории', many: 'историй', other: 'истории' },
       sources: { one: 'источник', few: 'источника', many: 'источников', other: 'источника' },
-      sub: (n) => `${n} по рейтингу · за 24 часа`, updated: 'Обновлено', top: 'Главное', readAt: 'Читать на',
+      sub: (n) => `${n} по времени · за 24 часа`, updated: 'Обновлено', top: 'Главное', readAt: 'Читать на',
       empty: 'За последние 24 часа новостей здесь нет', error: 'Не удалось загрузить новости. Проверьте соединение.',
       retry: 'Попробовать снова', refresh: 'Обновить', theme: 'Сменить тему', language: 'Язык',
       fresh: (n) => `Новых историй: ${n}`, upToDate: 'Новости актуальны',
@@ -150,6 +150,22 @@
     if (diff < 3600) return rtf.format(-Math.round(diff / 60), 'minute');
     return rtf.format(-Math.round(diff / 3600), 'hour');
   };
+  // точний час новини: сьогодні — «14:32», учора — «вчора, 14:32», раніше — «9 лист., 14:32» (часовий пояс пристрою)
+  const when = (iso) => {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const hm = d.toLocaleTimeString(state.lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(new Date()) - day(d)) / DAY_MS);
+    if (diff <= 0) return hm;
+    if (diff === 1) {
+      const y = new Intl.RelativeTimeFormat(state.lang, { numeric: 'auto' }).format(-1, 'day');
+      return state.lang === 'zh' ? `${y} ${hm}` : `${y}, ${hm}`;
+    }
+    const dt = d.toLocaleDateString(state.lang, { day: 'numeric', month: 'short' });
+    return state.lang === 'zh' ? `${dt} ${hm}` : `${dt}, ${hm}`;
+  };
+  const startOf = (s) => s.first || s.time;
   const initials = (name) => {
     const w = String(name).replace(/[«»"'“”]/g, '').trim();
     if (/^[一-鿿]/.test(w)) return w[0];
@@ -180,10 +196,12 @@
     return map;
   };
   const orderedSection = (topic, region) => {
-    const list = sectionList(topic, region);
+    // «Головне» (найрейтинговіша, різна в розділах) — першою, решта — від найновіших за часом першої появи
     const hid = heroesFor(region)[topic];
-    const k = list.findIndex((x) => x.id === hid);
-    return k > 0 ? [list[k], ...list.slice(0, k), ...list.slice(k + 1)] : list;
+    const list = sectionList(topic, region);
+    const hero = list.find((x) => x.id === hid);
+    const rest = list.filter((x) => x !== hero).sort((a, b) => new Date(startOf(b)) - new Date(startOf(a)));
+    return hero ? [hero, ...rest] : rest;
   };
   const regionFor = (topic, region) => (WORLD_ONLY.has(topic) ? 'world' : region);
   const hashFor = (topic, region, id) => `#${topic}/${regionFor(topic, region)}${id ? `/${id}` : ''}`;
@@ -313,7 +331,7 @@
       ${img}
       <div class="body">
         ${hero ? `<span class="badge-top">${esc(L.top)}</span>` : ''}
-        <div class="meta"><span class="avatars">${av}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(s.time)}">${esc(ago(s.time))}</time>${pill(s)}</div>
+        <div class="meta"><span class="avatars">${av}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(startOf(s))}">${esc(when(startOf(s)))}</time>${pill(s)}</div>
         <h3>${esc(s.title)}</h3>
         ${s.summary ? `<p>${esc(s.summary)}</p>` : ''}
         <div class="srcs">${esc(names.slice(0, 2).join(' · '))}${esc(more)}</div>
@@ -372,7 +390,7 @@
   }
 
   function refreshTimes() {
-    document.querySelectorAll('time[datetime]').forEach((tm) => { tm.textContent = ago(tm.getAttribute('datetime')); });
+    document.querySelectorAll('time[datetime]').forEach((tm) => { tm.textContent = when(tm.getAttribute('datetime')); });
     renderUpdated();
   }
 
@@ -644,7 +662,7 @@
     el.story.innerHTML = `
       <div class="sp-top"><button class="sp-back" type="button" data-back>${CHEV('l')}${esc(L.back)}</button><div class="sp-pills">${storyPills(s)}</div></div>
       <header class="sp-head">
-        <div class="meta"><span class="avatars">${(s.names || []).slice(0, 3).map((n) => `<i>${esc(initials(n).slice(0, 1))}</i>`).join('')}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(s.time)}">${esc(ago(s.time))}</time></div>
+        <div class="meta"><span class="avatars">${(s.names || []).slice(0, 3).map((n) => `<i>${esc(initials(n).slice(0, 1))}</i>`).join('')}</span><span>${esc(countText(s.sourceCount, L.sources))}</span><span class="sep">•</span><time datetime="${esc(startOf(s))}">${esc(when(startOf(s)))}</time></div>
         <h1 id="sp-title">${esc(s.title)}</h1>
         ${infoLine(s)}
       </header>
