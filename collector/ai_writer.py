@@ -356,7 +356,7 @@ def run(bases: list[dict], cache: dict, log) -> None:
     def own_text(b) -> int:  # скільки тексту є без ШІ — найкоротші отримують текст першими
         return max((len(i.get("text") or "") for i in b["_items"]), default=0)
 
-    todo = sorted((b for b in bases if need(b)), key=lambda b: (-need(b), own_text(b) >= 150, -b["score"]))
+    todo = sorted((b for b in bases if need(b)), key=lambda b: (-need(b), -b["score"]))  # спершу без тексту, за рейтингом
     # рівномірно по добі: скільки запусків лишилось до скидання лімітів (08:00 UTC) і скільки запитів лишилось.
     # Дозволяємо вдвічі більше за «рівну частку», щоб швидше наздоганяти, але не з'їсти все зранку.
     now = datetime.now(timezone.utc)
@@ -554,6 +554,15 @@ def verify_topics(checks: list[tuple[str, str, str]], cache: dict, log, max_requ
         rejected = sum(1 for k, _, _ in todo if known.get(k) is False)
         log(f"ШІ: друга перевірка розділів: {asked} запитів, відхилено: {rejected}")
     return out
+
+
+def available(cache: dict) -> bool:
+    """Чи може ШІ ще писати сьогодні: є ключ, лишились робочі моделі й денний бюджет."""
+    if not api_key():
+        return False
+    state = _budget(cache)
+    alive = [m for m in MODELS if m not in _dead and m not in _run_dead]
+    return bool(alive) and state["count"] < DAILY_LIMIT
 
 
 def prune(cache: dict, keep_ids: set[str]) -> None:

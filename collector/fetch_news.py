@@ -534,18 +534,20 @@ def inherit_ids(bases: list[dict], ai_cache: dict) -> None:
     ai_cache["urlid"] = {i["url"]: b["id"] for b in bases for i in b["_items"]}
 
 
-def select_shown(bases: list[dict]) -> list[dict]:
-    """Залишаємо лише те, що буде на сайті: топ-15 за рейтингом у кожному «розділ × регіон»."""
+def select_shown(bases: list[dict], limit: int = PER_SECTION, ready: set[str] | None = None,
+                 fallback: bool = True) -> list[dict]:
+    """Топ за рейтингом у кожному «розділ × регіон».
+    ready — номери історій, для яких уже є текст ШІ: на сайт ідуть лише вони;
+    історії без тексту додаються, тільки якщо fallback (ШІ сьогодні недоступний) — щоб сайт не спорожнів."""
     keep: set[str] = set()
     for t in TOPIC_IDS:
         for r in (["world"] if t in WORLD_ONLY else REGION_IDS):
-            n = 0
-            for b in bases:  # bases уже відсортовані за рейтингом
-                if r in b["cats"] and (t == "popular" or t in b["topics"]):
-                    keep.add(b["id"])
-                    n += 1
-                    if n >= PER_SECTION:
-                        break
+            pool = [b for b in bases if r in b["cats"] and (t == "popular" or t in b["topics"])]  # уже за рейтингом
+            if ready is not None:
+                with_text = [b for b in pool if b["id"] in ready]
+                pool = with_text + ([b for b in pool if b["id"] not in ready] if fallback else [])
+            for b in pool[:limit]:
+                keep.add(b["id"])
     return [b for b in bases if b["id"] in keep]
 
 
@@ -773,7 +775,8 @@ def main() -> int:
     # кожна новина — лише в ОДНОМУ розділі (головному); «Популярне» показує всі новини
     for b in bases:
         b["topics"] = b["topics"][:1]
-    shown = select_shown(bases)
+    # кандидати: топ-20 у кожному розділі — ШІ пише для них тексти, а на сайт ідуть топ-15 з готовим текстом
+    shown = select_shown(bases, limit=PER_SECTION + 5)
     log(f"Історій усього: {len(bases)}, на сайті (топ-{PER_SECTION} у кожному розділі): {len(shown)}")
 
     # 4. опис, фото й текст статей — лише для історій, що на сайті
@@ -806,6 +809,16 @@ def main() -> int:
     # 5. текст від ШІ (безкоштовний Gemini)
     ai_writer.run(shown, ai_cache, log)
     ai_stories = ai_cache.get("stories", {})
+    ready = {b["id"] for b in shown if b["id"] in ai_stories}
+    ai_up = ai_writer.available(ai_cache)
+    shown = select_shown(shown, ready=ready, fallback=not ai_up)
+    no_text = sum(1 for b in shown if b["id"] not in ready)
+    prev_shown = set(ai_cache.get("prev_shown", []))
+    if prev_shown:
+        fresh_ids = [b["id"] for b in shown if b["id"] not in prev_shown]
+        log(f"Замір: нових історій на сайті з минулого оновлення: {len(fresh_ids)}")
+    ai_cache["prev_shown"] = [b["id"] for b in shown]
+    log(f"На сайті: {len(shown)} історій, з них без тексту ШІ: {no_text}" + ("" if ai_up else " (ШІ сьогодні недоступний — показано описи видань)"))
 
     # 6. для кожної мови сайту
     names = sorted({n for feeds in FEEDS.values() for n, _, _ in feeds})
