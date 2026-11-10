@@ -226,14 +226,41 @@ def _note_fail(model: str) -> None:
         print(f"ШІ: модель {model} не відповідає — пропускаю її до наступного оновлення", flush=True)
 
 
-def _aux_ok(state: dict) -> bool:
-    """Чи лишився денний бюджет на допоміжні задачі (щоб основне — тексти — не залишились без ліміту)."""
-    return state.get("aux", 0) < AUX_DAILY and state["count"] < DAILY_LIMIT
+# Допоміжний ліміт розтягуємо на всю добу: кожне оновлення (≈ раз на RUN_MINUTES хв) отримує свою частку —
+# залишок AUX_DAILY ÷ кількість оновлень до скидання (08:00 UTC). Невикористане переходить у наступні оновлення.
+# Частка ділиться за важливістю: розділи → фото з текстом → дублі → повторна перевірка розділів.
+# Порядок викликів у збирачі інший (дублі → розділи → перевірка → фото), тому раніші задачі лишають запас (reserve)
+# для важливіших, що йдуть після них.
+RUN_MINUTES = 20
+_run_aux = 0          # допоміжних запитів у цьому оновленні
+_aux_share: int | None = None
+
+
+def _aux_quota(state: dict) -> int:
+    global _aux_share
+    if _aux_share is None:
+        now = datetime.now(timezone.utc)
+        reset = now.replace(hour=8, minute=0, second=0, microsecond=0)
+        if reset <= now:
+            reset += timedelta(days=1)
+        runs_left = max(1.0, (reset - now).total_seconds() / 60 / RUN_MINUTES)
+        left = max(0, AUX_DAILY - state.get("aux", 0))
+        _aux_share = min(left, -(-left // int(runs_left)) if runs_left >= 1 else left)  # округлення вгору
+    return _aux_share
+
+
+def _aux_ok(state: dict, asked: int = 0, cap: int = 1 << 30, reserve: int = 0) -> bool:
+    """Чи можна ще один допоміжний запит: денний бюджет, частка цього оновлення (із запасом reserve
+    для важливіших задач, що йдуть далі) і власна межа задачі cap."""
+    return (state.get("aux", 0) < AUX_DAILY and state["count"] < DAILY_LIMIT
+            and asked < cap and _run_aux + reserve < _aux_quota(state))
 
 
 def _aux_used(state: dict) -> None:
+    global _run_aux
     state["count"] += 1
     state["aux"] = state.get("aux", 0) + 1
+    _run_aux += 1
 
 
 FOREIGN = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]")  # ієрогліфи, кана, хангиль
@@ -305,7 +332,7 @@ def classify(bases: list[dict], cache: dict, log) -> None:
     todo = [b for b in bases if b["id"] not in cls]  # bases уже відсортовані за рейтингом
     done = 0
     for start in range(0, len(todo), CLS_BATCH):
-        if done >= CLS_PER_RUN or not _aux_ok(state):
+        if not _aux_ok(state, done, CLS_PER_RUN, reserve=1):  # 1 — запас для перевірки фото
             break
         batch = todo[start:start + CLS_BATCH]
         lines = []
@@ -390,6 +417,7 @@ def run(bases: list[dict], cache: dict, log) -> None:
             stories[b["id"]] = {"n": b["sourceCount"], "d": state["day"], "a": res}
         time.sleep(PAUSE)
     log(f"ШІ: написано текстів у цьому запуску: {done}, запитів сьогодні всього: {state['count']}/{DAILY_LIMIT}")
+    log(f"ШІ: допоміжних запитів у цьому запуску: {_run_aux}/{_aux_quota(state)}, за добу: {state.get('aux', 0)}/{AUX_DAILY}")
 
 
 SAME_SYSTEM = """Тобі дають пари новин (номер пари, новина A, новина B). Для кожної пари визнач,
@@ -425,7 +453,7 @@ def same_event(pairs: list[tuple[str, str, str]], cache: dict, log) -> dict[str,
     todo = [p for p in pairs if p[0] not in known]
     asked = 0
     for start in range(0, len(todo), 40):
-        if asked >= 2 or not _aux_ok(state):
+        if not _aux_ok(state, asked, 2, reserve=2):  # запас: 1 на розділи, 1 на фото
             break
         batch = todo[start:start + 40]
         text = "\n".join(f"{n}. A: {a}\n   B: {b}" for n, (_, a, b) in enumerate(batch))
@@ -474,7 +502,7 @@ def image_text_flags(thumbs: dict[str, bytes], cache: dict, log, max_requests: i
     state = _budget(cache)
     asked = 0
     for start in range(0, len(todo), 8):
-        if asked >= max_requests or not _aux_ok(state):
+        if not _aux_ok(state, asked, max_requests):
             break
         batch = todo[start:start + 8]
         parts = []
@@ -534,7 +562,7 @@ def verify_topics(checks: list[tuple[str, str, str]], cache: dict, log, max_requ
     todo = [c for c in checks if c[0] not in known]
     asked = 0
     for start in range(0, len(todo), 40):
-        if asked >= max_requests or not _aux_ok(state):
+        if not _aux_ok(state, asked, max_requests, reserve=1):  # 1 — запас для перевірки фото
             break
         batch = todo[start:start + 40]
         text = "\n".join(f"{n}. Розділ: {TOPIC_NAMES[t]}\n   Новина: {txt}" for n, (_, t, txt) in enumerate(batch))
