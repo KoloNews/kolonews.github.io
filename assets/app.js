@@ -372,9 +372,11 @@
     if (!state.openId) document.title = state.topic === 'popular' && state.region === 'world' ? 'Коло Новин' : `${sectionTitle()} — Коло Новин`;
   }
 
+  // годинник: поточний час пристрою у форматі його регіону (12-годинний «2:30 PM» або 24-годинний «14:30»)
+  const clockFmt = new Intl.DateTimeFormat(navigator.languages?.[0] || navigator.language || undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   function renderUpdated() {
-    if (!state.data) return;
-    el.updated.textContent = `${t().updated} ${ago(state.data.generated)}`;
+    const now = clockFmt.format(new Date());
+    if (el.updated.textContent !== now) el.updated.textContent = now;
   }
 
   function renderList(animate = true) {
@@ -797,6 +799,8 @@
   });
 
   setInterval(refreshTimes, 60 * 1000);
+  renderUpdated();
+  setInterval(renderUpdated, 1000);
   setInterval(() => load(true), AUTO_REFRESH_MS);
 
   // ---------------------------------------------------------------- старт
