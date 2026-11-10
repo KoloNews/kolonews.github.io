@@ -144,6 +144,8 @@ def better_image(url: str) -> str:
         return ""
     # BBC віддає в RSS маленькі картинки 240px — беремо 800px
     url = re.sub(r"(ichef\.bbci\.co\.uk/[^ ]*?/)(\d{2,3})(/)", lambda m: m.group(1) + "800" + m.group(3), url, count=1)
+    # Phys.org / ScienceX віддають у RSS мініатюру 90×90 (/tmb/) — та сама картинка є 800px (/800a/)
+    url = re.sub(r"(b-cdn\.net/csz/news/)tmb/", r"\g<1>800a/", url)
     return url.replace("&amp;", "&")
 
 
@@ -382,12 +384,15 @@ def build_base(group: list[dict], now: datetime) -> dict:
 
 def build_gallery(b: dict) -> None:
     lead = b["_lead"]
-    gallery, seen_img = [], set()
+    gallery, seen_img, keys = [], set(), {}
     for i in [lead] + sorted(b["_items"], key=lead_key):
         for u in i.get("images", []):
+            # та сама назва файлу = те саме фото, можливо іншого розміру: беремо не більше двох варіантів,
+            # а з них images.dedupe_galleries лишить більший
             k = image_key(u)
-            if k not in seen_img and len(gallery) < MAX_IMAGES + 4:
-                seen_img.add(k)
+            if u not in seen_img and keys.get(k, 0) < 2 and len(gallery) < MAX_IMAGES + 6:
+                seen_img.add(u)
+                keys[k] = keys.get(k, 0) + 1
                 gallery.append({"u": u, "s": i["source"]})
     b["_gallery"] = gallery
     if not b["image"] and gallery:
@@ -576,6 +581,7 @@ def select_shown(bases: list[dict], limit: int = PER_SECTION, ready: set[str] | 
     keep: set[str] = set()
     for b in bases:
         b["pop"] = []
+        b["_rank"] = 999  # найкраще місце історії в будь-якому розділі: ШІ пише спершу 1-ші місця всіх розділів, потім 2-гі…
     for t in TOPIC_IDS:
         for r in (["world"] if t in WORLD_ONLY else REGION_IDS):
             pool = [b for b in bases if r in b["cats"] and (t == "popular" or t in b["topics"])]  # уже за рейтингом
@@ -583,7 +589,8 @@ def select_shown(bases: list[dict], limit: int = PER_SECTION, ready: set[str] | 
                 with_text = [b for b in pool if b["id"] in ready]
                 pool = with_text + ([b for b in pool if b["id"] not in ready] if fallback else [])
             chosen = popular_pick(pool, limit, now) if t == "popular" else pool[:limit]
-            for b in chosen:
+            for pos, b in enumerate(chosen):
+                b["_rank"] = min(b["_rank"], pos)
                 keep.add(b["id"])
                 if t == "popular":
                     b["pop"].append(r)
@@ -646,6 +653,9 @@ def write_share_pages(stories: list[dict], L: str, now: datetime) -> None:
             old.unlink()
 
 
+RU_AI = re.compile(r"(?<![А-Яа-яЁёІіЇїЄєҐґ])(?:ШІ|ІІ|Ші|Іі)(?![А-Яа-яЁёІіЇїЄєҐґ])")
+
+
 def render_language(bases: list[dict], L: str, tr: Translator, ai: dict) -> tuple[list[dict], list[dict]]:
     """Готує історії для мови L.
     Текст: від ШІ (написаний українською, перекладений Google), а якщо його ще немає —
@@ -672,6 +682,11 @@ def render_language(bases: list[dict], L: str, tr: Translator, ai: dict) -> tupl
             if i["lang"] != L:
                 need.setdefault(i["lang"], []).append(i["title"])
     done: dict[str, dict[str, str | None]] = {sl: tr.translate(texts, sl, L) for sl, texts in need.items()}
+    if L == "ru":  # Google перекладає українське «ШІ» як «ІІ» (українськими літерами) — має бути «ИИ»
+        for tr_map in done.values():
+            for k, v in tr_map.items():
+                if v:
+                    tr_map[k] = RU_AI.sub("ИИ", v)
 
     def t(i_lang: str, text: str) -> str | None:
         if not text:
@@ -896,16 +911,26 @@ def main() -> int:
     need += [im["u"] for b in shown for im in b["_gallery"][1:3] if im["u"] not in txt]
     if need and ai_writer.api_key():
         ai_writer.image_text_flags(images.thumbnails(list(dict.fromkeys(need))[:16]), ai_cache, log)
+    used_covers: set[str] = set()  # одне фото — обкладинка лише однієї новини (найрейтинговішої); shown — за рейтингом
     for b in shown:
         g = b["_gallery"]
         clean = [im for im in g if not txt.get(im["u"])]
         g[:] = clean if clean else g[:1]
+        if len(g) > 1 and g[0]["u"] in used_covers:
+            other = next((im for im in g if im["u"] not in used_covers), None)
+            if other is not None:
+                g.remove(other)
+                g.insert(0, other)
+        if g and g[0]["u"] in used_covers:
+            g.pop(0)  # те саме (часто загальне) фото вже є в іншій новині — краще без нього
         for im in g:  # лишилось єдине фото з текстом — сайт покаже його цілим, без обрізання
             if txt.get(im["u"]):
                 im["t"] = 1
+        b["image"] = g[0]["u"] if g else ""
         if g:
-            b["image"] = g[0]["u"]
+            used_covers.add(g[0]["u"])
         b["imageText"] = bool(g and txt.get(g[0]["u"]))
+        b["imageSmall"] = bool(g and g[0].get("sm"))  # мале фото: сайт не розтягує його
 
     # 5. текст від ШІ (безкоштовний Gemini)
     ai_writer.run(shown, ai_cache, log)
@@ -954,7 +979,8 @@ def main() -> int:
     meta_cache = {u: m for u, m in meta_cache.items() if u in urls}  # лише для поточних новин
     ai_writer.prune(ai_cache, all_ids)  # тексти ШІ тримаємо, поки історія свіжа
     AI_CACHE_FILE.write_text(json.dumps(ai_cache, ensure_ascii=False, separators=(",", ":")), "utf-8")
-    gallery_urls = {im["u"] for b in shown for im in b.get("_gallery", [])}
+    # розміри фото тримаємо й для відкинутих варіантів (менших, дублів) — щоб не завантажувати їх щоразу
+    gallery_urls = {im["u"] for b in shown for im in b.get("_gallery", [])} | {u for i in items for u in i.get("images", [])}
     img_cache = {u: v for u, v in img_cache.items() if u in gallery_urls or u in urls}
     IMG_CACHE_FILE.write_text(json.dumps(img_cache, separators=(",", ":")), "utf-8")
     META_CACHE_FILE.write_text(json.dumps(meta_cache, ensure_ascii=False, separators=(",", ":")), "utf-8")
@@ -963,6 +989,13 @@ def main() -> int:
         old_og.unlink()
     for e in errors:
         log("Не вдалося завантажити:", e)
+    # автоперевірка якості готового сайту (фото, тексти, мова, дублі, розділи) — підсумок у журналі
+    try:
+        import qa
+        lists, details = qa.load(False)
+        qa.report(qa.check(lists, details, img_cache), log)
+    except Exception as e:  # перевірка не повинна зупиняти оновлення сайту
+        log(f"Перевірка якості не вдалася: {e}")
     log(f"Готово за {time.time() - started:.1f} с")
     return 0
 

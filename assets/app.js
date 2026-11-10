@@ -342,10 +342,12 @@
   }
 
   // фото з надрукованим текстом показуємо цілим (без обрізання), фон — розмита копія цього ж фото
-  function mediaHTML(url, hasText, eager) {
+  // фото з текстом — показуємо цілим (fit); мале фото (sm) — у справжньому розмірі, не розтягуючи; обидва — на розмитому фоні
+  function mediaHTML(url, hasText, eager, small) {
     const u = esc(safeUrl(url));
-    const bg = hasText ? `<div class="media-bg" style="background-image:url('${u}')"></div>` : '';
-    return `<div class="media${hasText ? ' fit' : ''}">${bg}<img src="${u}" alt="" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer"></div>`;
+    const fit = hasText || small;
+    const bg = fit ? `<div class="media-bg" style="background-image:url('${u}')"></div>` : '';
+    return `<div class="media${fit ? ' fit' : ''}${small ? ' sm' : ''}">${bg}<img src="${u}" alt="" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer"></div>`;
   }
 
   function cardHTML(s, i, hero) {
@@ -353,7 +355,7 @@
     const names = s.names || [];
     const av = names.slice(0, 3).map((nm) => `<i>${esc(initials(nm).slice(0, 1))}</i>`).join('');
     const more = names.length > 2 ? ` +${names.length - 2}` : '';
-    const img = s.image ? mediaHTML(s.image, s.imageText, i < 4) : '<div class="media noimg"></div>';
+    const img = s.image ? mediaHTML(s.image, s.imageText, i < 4, s.imageSmall) : '<div class="media noimg"></div>';
     return `<article class="card${hero ? ' hero' : ''}" style="--c:${esc(s.color)};--i:${i}" data-id="${esc(s.id)}" tabindex="0" role="button" aria-label="${esc(s.title)}">
       ${img}
       <div class="body">
@@ -624,7 +626,7 @@
     const many = images.length > 1;
     return `<div class="gallery${many ? '' : ' single'}" id="gallery">
       <div class="g-track" id="g-track">${images.map((im, k) => `
-        <figure class="g-item${im.t ? ' fit' : ''}">${im.t ? `<div class="media-bg" style="background-image:url('${esc(safeUrl(im.u))}')"></div>` : ''}<img src="${esc(safeUrl(im.u))}" alt="" loading="${k < 2 ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer">
+        <figure class="g-item${im.t || im.sm ? ' fit' : ''}${im.sm ? ' sm' : ''}">${im.t || im.sm ? `<div class="media-bg" style="background-image:url('${esc(safeUrl(im.u))}')"></div>` : ''}<img src="${esc(safeUrl(im.u))}" alt="" loading="${k < 2 ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer">
           <figcaption>${esc(L.photo)}: ${esc(im.s)}</figcaption></figure>`).join('')}
       </div>
       <button class="g-nav prev" type="button" data-g="-1" aria-label="${esc(L.prev)}">${CHEV('l')}</button>
@@ -760,7 +762,7 @@
         <h1 id="sp-title">${esc(s.title)}</h1>
         ${infoLine(s)}
       </header>
-      <div id="sp-gallery">${galleryHTML(s.image ? [{ u: s.image, s: (s.names || [''])[0], t: s.imageText ? 1 : 0 }] : [])}</div>
+      <div id="sp-gallery">${galleryHTML(s.image ? [{ u: s.image, s: (s.names || [''])[0], t: s.imageText ? 1 : 0, sm: s.imageSmall ? 1 : 0 }] : [])}</div>
       <div id="sp-text">${bodyHTML(s, null)}</div>
       ${shareHTML(s)}
       <section class="sp-sources" id="sp-sources"><h2>${esc(L.srcTitle)}</h2><div class="sp-skel"></div></section>

@@ -267,6 +267,7 @@ a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transpar
 .card.hero .media.fit::after { background: linear-gradient(to right, transparent 88%, var(--tint) 100%); }
 @media (max-width: 720px) { .card.hero .media.fit::after { background: linear-gradient(to bottom, transparent 82%, var(--tint) 100%); } }
 .card:hover .media.fit img { transform: none; }
+.media.sm img, .g-item.sm img { object-fit: scale-down; }  /* мале фото — не більше за справжній розмір */
 
 /* головна (перша) історія */
 .card.hero { grid-column: 1 / -1; flex-direction: row; min-height: 380px; }

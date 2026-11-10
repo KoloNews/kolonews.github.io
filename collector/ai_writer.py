@@ -383,7 +383,9 @@ def run(bases: list[dict], cache: dict, log) -> None:
     def own_text(b) -> int:  # скільки тексту є без ШІ — найкоротші отримують текст першими
         return max((len(i.get("text") or "") for i in b["_items"]), default=0)
 
-    todo = sorted((b for b in bases if need(b)), key=lambda b: (-need(b), -b["score"]))  # спершу без тексту, за рейтингом
+    # спершу без тексту; далі рівномірно по розділах: 1-ші місця всіх розділів, потім 2-гі… (щоб малі розділи
+    # не лишались порожніми), а в межах місця — за рейтингом
+    todo = sorted((b for b in bases if need(b)), key=lambda b: (-need(b), b.get("_rank", 999), -b["score"]))
     # рівномірно по добі: скільки запусків лишилось до скидання лімітів (08:00 UTC) і скільки запитів лишилось.
     # Дозволяємо вдвічі більше за «рівну частку», щоб швидше наздоганяти, але не з'їсти все зранку.
     now = datetime.now(timezone.utc)
