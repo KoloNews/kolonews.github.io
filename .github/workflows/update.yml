@@ -37,9 +37,16 @@ jobs:
             data/meta_cache.json
             data/img_cache.json
             data/ai_cache.json
-            data/s
           key: kolo-cache-${{ github.run_id }}
           restore-keys: kolo-cache-
+      # окремий кеш для сторінок поширення: НЕ додавати шляхи в кеш вище — зміна списку шляхів
+      # робить старий кеш «чужим», і збирач починає з нуля (втрачаються тексти ШІ)
+      - name: Відновити сторінки для поширення
+        uses: actions/cache@v4
+        with:
+          path: data/s
+          key: kolo-share-${{ github.run_id }}
+          restore-keys: kolo-share-
       - name: Встановити Pillow (порівняння фото)
         run: pip install --quiet pillow
       - name: Зібрати новини
